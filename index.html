@@ -7,27 +7,222 @@
     <meta property="og:title" content="🍪 The Great Cookie Roulette!">
     <meta property="og:description" content="Click to let fate decide which of my girls gets your cookie order! May the odds be ever in your flavor.">
     <meta property="og:type" content="website">
-    
     <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Thin_Mints.jpg/800px-Thin_Mints.jpg">
-    
     <meta name="theme-color" content="#00B451">
 
     <title>Cookie Roulette!</title>
-    
-    <script>
-        // Replace these with the actual Digital Cookie URLs
-        const cookieLinks = [
-            "https://digitalcookie.girlscouts.org/scout/amelia190647?fpkp=1",
-            "https://digitalcookie.girlscouts.org/scout/gabriella509529?fpkp=1"
-        ];
+    <style>
+        body {
+            background-color: #00B451;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            margin-bottom: 40px;
+        }
+
+        .roulette-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .name {
+            position: absolute;
+            font-size: 2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        #name-amelia { left: -140px; }
+        #name-gabriella { right: -160px; }
+
+        .spinner-center {
+            font-size: 100px;
+            z-index: 2;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.2));
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
         
-        // Pick a random link and redirect
-        const randomIndex = Math.floor(Math.random() * cookieLinks.length);
-        window.location.replace(cookieLinks[randomIndex]);
-    </script>
+        .spinner-center:hover {
+            transform: scale(1.1);
+        }
+
+        #pointer {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 40px solid #FFD700; /* Gold pointer */
+            top: -50px;
+            transform-origin: 50% 170px;
+            z-index: 3;
+            transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        button {
+            background-color: white;
+            color: #00B451;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            background-color: #f0f0f0;
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.primary {
+            background-color: #FFD700;
+            color: #333;
+        }
+
+        .message {
+            margin-top: 30px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            height: 2rem;
+            text-align: center;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .winner-glow {
+            animation: pulse 0.5s ease-in-out infinite;
+            color: #FFD700;
+        }
+        
+        .fade-out {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+    </style>
 </head>
-<body style="background-color: #f4f4f4; font-family: sans-serif; text-align: center; padding-top: 20%;">
-    <h2>🍪 Rolling the dice...</h2>
-    <p>Redirecting you to a cookie page!</p>
+<body>
+
+    <h1>The Great Cookie Roulette!</h1>
+
+    <div class="roulette-container">
+        <div id="name-amelia" class="name">Amelia</div>
+        <div id="pointer"></div>
+        <div class="spinner-center" onclick="spinRandom()">🍪</div>
+        <div id="name-gabriella" class="name">Gabriella</div>
+    </div>
+
+    <div class="controls" id="control-panel">
+        <button onclick="pickWinner('Amelia')">Pick Amelia</button>
+        <button class="primary" onclick="spinRandom()">Let Fate Decide! 🎲</button>
+        <button onclick="pickWinner('Gabriella')">Pick Gabriella</button>
+    </div>
+
+    <div id="status-message" class="message">Choose a girl or spin the cookie!</div>
+
+    <script>
+        const cookieLinks = {
+            "Amelia": { url: "https://digitalcookie.girlscouts.org/scout/amelia190647?fpkp=1", angle: -90 },
+            "Gabriella": { url: "https://digitalcookie.girlscouts.org/scout/gabriella509529?fpkp=1", angle: 90 }
+        };
+        
+        let spinning = false;
+
+        function pickWinner(name) {
+            if (spinning) return;
+            startSpin(name);
+        }
+
+        function spinRandom() {
+            if (spinning) return;
+            const names = Object.keys(cookieLinks);
+            const randomName = names[Math.floor(Math.random() * names.length)];
+            startSpin(randomName);
+        }
+
+        function startSpin(winnerName) {
+            spinning = true;
+            const winner = cookieLinks[winnerName];
+            const pointer = document.getElementById('pointer');
+            const statusMessage = document.getElementById('status-message');
+            const controlPanel = document.getElementById('control-panel');
+            const nameElements = {
+                "Amelia": document.getElementById('name-amelia'),
+                "Gabriella": document.getElementById('name-gabriella')
+            };
+
+            // Disable UI
+            controlPanel.classList.add('fade-out');
+            statusMessage.innerText = "Spinning...";
+
+            // Reset pointer if it was already spun
+            pointer.style.transition = 'none';
+            pointer.style.transform = 'rotate(0deg)';
+            
+            // Force reflow
+            pointer.offsetHeight;
+
+            // Start animation
+            pointer.style.transition = 'transform 4s cubic-bezier(0.15, 0, 0.15, 1)';
+            const finalRotation = 1440 + winner.angle;
+            pointer.style.transform = `rotate(${finalRotation}deg)`;
+
+            // Update text half-way through
+            setTimeout(() => {
+                statusMessage.innerText = "And the winner is...";
+            }, 2000);
+
+            // When animation ends
+            setTimeout(() => {
+                statusMessage.innerText = `Order from ${winnerName}! 🍪`;
+                nameElements[winnerName].classList.add('winner-glow');
+                
+                // Final redirect
+                setTimeout(() => {
+                    window.location.replace(winner.url);
+                }, 1500);
+            }, 4100);
+        }
+    </script>
 </body>
 </html>
