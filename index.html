@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta property="og:title" content="🍪 The Great Cookie Roulette!">
+    <meta property="og:description" content="Click to let fate decide which of my girls gets your cookie order! May the odds be ever in your flavor.">
+    <meta property="og:type" content="website">
+    
+    <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Thin_Mints.jpg/800px-Thin_Mints.jpg">
+    
+    <meta name="theme-color" content="#00B451">
+
+    <title>Cookie Roulette!</title>
+    
+    <script>
+        // Replace these with the actual Digital Cookie URLs
+        const cookieLinks = [
+            "https://digitalcookie.girlscouts.org/scout/amelia190647?fpkp=1",
+            "https://digitalcookie.girlscouts.org/scout/gabriella509529?fpkp=1"
+        ];
+        
+        // Pick a random link and redirect
+        const randomIndex = Math.floor(Math.random() * cookieLinks.length);
+        window.location.replace(cookieLinks[randomIndex]);
+    </script>
+</head>
+<body style="background-color: #f4f4f4; font-family: sans-serif; text-align: center; padding-top: 20%;">
+    <h2>🍪 Rolling the dice...</h2>
+    <p>Redirecting you to a cookie page!</p>
+</body>
+</html>
