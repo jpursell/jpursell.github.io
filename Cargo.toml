@@ -1,0 +1,8 @@
+[workspace]
+members = ["crates/synth_wasm"]
+resolver = "2"
+[profile.release]
+lto = true
+panic = "abort"
+codegen-units = 1
+

@@ -1,0 +1,11 @@
+node_modules/
+web/node_modules/
+web/dist/
+web/public/wasm/synth.wasm
+
+target/
+crates/**/target/
+
+.DS_Store
+Thumbs.db
+
