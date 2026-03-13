@@ -17,7 +17,7 @@ export class AudioEngine {
     if (this.started) return;
 
     const ctx = new AudioContext({ latencyHint: "interactive" });
-    const workletUrl = new URL("./worklet.ts", import.meta.url);
+    const workletUrl = new URL("worklet.js", window.location.href);
 
     await ctx.audioWorklet.addModule(workletUrl.toString());
 
@@ -79,4 +79,5 @@ export class AudioEngine {
     this.node.port.postMessage(msg);
   }
 }
+
 
