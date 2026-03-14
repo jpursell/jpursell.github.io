@@ -221,6 +221,15 @@ canvas#keyboard {
   gap: 10px;
 }
 
+.row.one {
+  grid-template-columns: 1fr;
+}
+
+.transport {
+  display: grid;
+  gap: 10px;
+}
+
 .arpLegend {
   display: grid;
   place-items: center;
@@ -228,13 +237,13 @@ canvas#keyboard {
   font-size: 12px;
 }
 
-.arpGrid {
+.stepGrid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 8px;
 }
 
-.arpStep {
+.stepBtn {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
@@ -245,17 +254,31 @@ canvas#keyboard {
   font-weight: 800;
 }
 
-.arpStep.rest {
+.stepBtn.off {
   opacity: 0.45;
 }
 
-.arpStep.gate {
+.stepBtn.on {
   background: rgba(242, 193, 78, 0.18);
   border-color: rgba(242, 193, 78, 0.45);
 }
 
-.arpStep.tie {
-  background: rgba(0, 0, 0, 0.15);
-  border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.35);
+.drums {
+  display: grid;
+  gap: 10px;
+}
+
+.chanBar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chanBtn {
+  padding: 8px 10px;
+}
+
+.chanBtn.active {
+  background: rgba(109, 211, 206, 0.16);
+  border-color: rgba(109, 211, 206, 0.42);
 }

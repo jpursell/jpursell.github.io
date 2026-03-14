@@ -1,0 +1,17 @@
+TR-505 drum samples
+
+Source:
+  Oramics “Sampled” — TR-505
+  https://oramics.github.io/sampled/DM/TR-505/
+
+License:
+  Public Domain (as stated by the source project)
+
+Files:
+  web/public/samples/tr505/kick.wav
+  web/public/samples/tr505/snare.wav
+  web/public/samples/tr505/ch.wav
+  web/public/samples/tr505/oh.wav
+
+Retrieved:
+  2026-03-14

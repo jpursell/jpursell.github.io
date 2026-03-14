@@ -182,15 +182,27 @@ row9.append(fSus.wrap, fRel.wrap);
 
 advanced.append(row5, row6, row7, row8, row9);
 
+// Transport + Arp + Drums (Advanced)
+let tempoBpm = 120;
+
+function pushTempo() {
+  engine.setTempo(tempoBpm);
+}
+
+const transportWrap = el("div", "transport");
+const transportRow = el("div", "row one");
+const tempo = makeSlider("Tempo (BPM)", 40, 240, 1, 120);
+transportRow.append(tempo.wrap);
+transportWrap.append(transportRow);
+
 // Arp (Advanced)
 let arpEnabled = false;
-let arpBpm = 120;
 let arpOctaves = 1;
 let arpPattern: "up" | "down" | "updown" | "random" | "asPlayed" = "up";
 const arpSteps: number[] = new Array(16).fill(1);
 
 function pushArp() {
-  engine.setArp({ enabled: arpEnabled, bpm: arpBpm, octaves: arpOctaves, pattern: arpPattern, steps: arpSteps.slice() });
+  engine.setArp({ enabled: arpEnabled, octaves: arpOctaves, pattern: arpPattern, steps: arpSteps.slice() });
 }
 
 const arpWrap = el("div", "arp");
@@ -201,39 +213,39 @@ arpBar.append(arpBtn);
 arpWrap.append(arpBar);
 
 const arpRow1 = el("div", "row");
-const arpTempo = makeSlider("Tempo (BPM)", 40, 240, 1, 120);
 const arpOct = makeSlider("Arp Oct", 1, 4, 1, 1);
-arpRow1.append(arpTempo.wrap, arpOct.wrap);
+const arpPat = makeSelect(
+  "Pattern",
+  [
+    { value: "up", label: "Up" },
+    { value: "down", label: "Down" },
+    { value: "updown", label: "UpDown" },
+    { value: "random", label: "Random" },
+    { value: "asPlayed", label: "As Played" }
+  ],
+  "up"
+);
+arpRow1.append(arpOct.wrap, arpPat.wrap);
 arpWrap.append(arpRow1);
 
-const arpRow2 = el("div", "row");
-const arpPat = makeSelect("Pattern", [
-  { value: "up", label: "Up" },
-  { value: "down", label: "Down" },
-  { value: "updown", label: "UpDown" },
-  { value: "random", label: "Random" },
-  { value: "asPlayed", label: "As Played" }
-], "up");
 const arpLegend = el("div", "arpLegend");
-arpLegend.textContent = "Steps: Rest / Gate / Tie";
-arpRow2.append(arpPat.wrap, arpLegend);
-arpWrap.append(arpRow2);
+arpLegend.textContent = "Steps: Off / On";
+arpWrap.append(arpLegend);
 
-const arpGrid = el("div", "arpGrid");
-function renderArpStep(i: number, btn: HTMLButtonElement) {
-  const v = arpSteps[i] | 0;
-  btn.classList.remove("rest", "gate", "tie");
-  if (v === 0) { btn.classList.add("rest"); btn.textContent = "·"; }
-  else if (v === 2) { btn.classList.add("tie"); btn.textContent = "–"; }
-  else { btn.classList.add("gate"); btn.textContent = "●"; }
+const arpGrid = el("div", "stepGrid");
+function renderBinaryStep(v: number, btn: HTMLButtonElement) {
+  const on = (v | 0) === 1;
+  btn.classList.toggle("on", on);
+  btn.classList.toggle("off", !on);
+  btn.textContent = on ? "●" : "·";
 }
 for (let i = 0; i < 16; i++) {
-  const b = el("button", "arpStep") as HTMLButtonElement;
+  const b = el("button", "stepBtn") as HTMLButtonElement;
   b.type = "button";
-  renderArpStep(i, b);
+  renderBinaryStep(arpSteps[i], b);
   b.addEventListener("click", () => {
-    arpSteps[i] = (arpSteps[i] + 1) % 3;
-    renderArpStep(i, b);
+    arpSteps[i] = arpSteps[i] === 1 ? 0 : 1;
+    renderBinaryStep(arpSteps[i], b);
     pushArp();
   });
   arpGrid.append(b);
@@ -245,15 +257,9 @@ arpBtn.addEventListener("click", () => {
   arpBtn.textContent = arpEnabled ? "Arp: On" : "Arp: Off";
   pushArp();
 });
-arpTempo.input.addEventListener("input", () => {
-  const v = Number(arpTempo.input.value);
-  setSliderText(arpTempo.right, v);
-  arpBpm = v;
-  pushArp();
-});
 arpOct.input.addEventListener("input", () => {
   const v = Number(arpOct.input.value);
-  setSliderText(arpOct.right, v);
+  arpOct.right.textContent = String(v | 0);
   arpOctaves = v | 0;
   pushArp();
 });
@@ -263,11 +269,158 @@ arpPat.select.addEventListener("change", () => {
   pushArp();
 });
 
-setSliderText(arpTempo.right, Number(arpTempo.input.value));
-setSliderText(arpOct.right, Number(arpOct.input.value));
+// Drums (Advanced)
+type DrumId = "kick" | "snare" | "ch" | "oh";
+let drumsEnabled = false;
+let drumEdit: DrumId = "kick";
+const drumPatterns: Record<DrumId, number[]> = {
+  kick: new Array(16).fill(0),
+  snare: new Array(16).fill(0),
+  ch: new Array(16).fill(0),
+  oh: new Array(16).fill(0)
+};
+const drumParams: Record<DrumId, { level: number; tune: number; decay: number }> = {
+  kick: { level: 0.9, tune: 0, decay: 0.5 },
+  snare: { level: 0.75, tune: 0, decay: 0.5 },
+  ch: { level: 0.5, tune: 0, decay: 0.35 },
+  oh: { level: 0.5, tune: 0, decay: 0.6 }
+};
 
-advanced.append(arpWrap);
-controls.append(advanced);
+function pushDrums() {
+  engine.setDrums({
+    enabled: drumsEnabled,
+    patterns: {
+      kick: drumPatterns.kick.slice(),
+      snare: drumPatterns.snare.slice(),
+      ch: drumPatterns.ch.slice(),
+      oh: drumPatterns.oh.slice()
+    },
+    params: {
+      kick: { ...drumParams.kick },
+      snare: { ...drumParams.snare },
+      ch: { ...drumParams.ch },
+      oh: { ...drumParams.oh }
+    }
+  });
+}
+
+const drumsWrap = el("div", "drums");
+const drumsBar = el("div", "btnbar");
+const drumsBtn = el("button", "btn");
+drumsBtn.textContent = "Drums: Off";
+drumsBar.append(drumsBtn);
+drumsWrap.append(drumsBar);
+
+const chanBar = el("div", "chanBar");
+function makeChanBtn(id: DrumId, label: string) {
+  const b = el("button", "btn chanBtn") as HTMLButtonElement;
+  b.type = "button";
+  b.textContent = label;
+  b.addEventListener("click", () => {
+    drumEdit = id;
+    syncDrumUi();
+  });
+  chanBar.append(b);
+  return b;
+}
+const chanKick = makeChanBtn("kick", "Kick");
+const chanSnare = makeChanBtn("snare", "Snare");
+const chanCh = makeChanBtn("ch", "CH");
+const chanOh = makeChanBtn("oh", "OH");
+drumsWrap.append(chanBar);
+
+const drumGrid = el("div", "stepGrid");
+const drumStepBtns: HTMLButtonElement[] = [];
+for (let i = 0; i < 16; i++) {
+  const b = el("button", "stepBtn") as HTMLButtonElement;
+  b.type = "button";
+  b.addEventListener("click", () => {
+    const steps = drumPatterns[drumEdit];
+    steps[i] = steps[i] === 1 ? 0 : 1;
+    renderBinaryStep(steps[i], b);
+    pushDrums();
+  });
+  drumStepBtns.push(b);
+  drumGrid.append(b);
+}
+drumsWrap.append(drumGrid);
+
+const drumRow1 = el("div", "row");
+const drumLevel = makeSlider("Level", 0, 1, 0.001, drumParams.kick.level);
+const drumTune = makeSlider("Tune (st)", -12, 12, 1, drumParams.kick.tune);
+drumTune.right.textContent = String(drumParams.kick.tune);
+drumRow1.append(drumLevel.wrap, drumTune.wrap);
+drumsWrap.append(drumRow1);
+
+const drumRow2 = el("div", "row one");
+const drumDecay = makeSlider("Decay", 0, 1, 0.001, drumParams.kick.decay);
+drumRow2.append(drumDecay.wrap);
+drumsWrap.append(drumRow2);
+
+function syncDrumUi() {
+  chanKick.classList.toggle("active", drumEdit === "kick");
+  chanSnare.classList.toggle("active", drumEdit === "snare");
+  chanCh.classList.toggle("active", drumEdit === "ch");
+  chanOh.classList.toggle("active", drumEdit === "oh");
+
+  const p = drumParams[drumEdit];
+  drumLevel.input.value = String(p.level);
+  setSliderText(drumLevel.right, p.level);
+
+  drumTune.input.value = String(p.tune);
+  drumTune.right.textContent = String(p.tune | 0);
+
+  drumDecay.input.value = String(p.decay);
+  setSliderText(drumDecay.right, p.decay);
+
+  const steps = drumPatterns[drumEdit];
+  for (let i = 0; i < 16; i++) renderBinaryStep(steps[i], drumStepBtns[i]);
+}
+
+// Wire transport/drum UI
+
+tempo.input.addEventListener("input", () => {
+  const v = Number(tempo.input.value);
+  setSliderText(tempo.right, v);
+  tempoBpm = v;
+  pushTempo();
+});
+
+setSliderText(tempo.right, Number(tempo.input.value));
+arpOct.right.textContent = String(Number(arpOct.input.value) | 0);
+
+// Drum handlers
+
+drumsBtn.addEventListener("click", () => {
+  drumsEnabled = !drumsEnabled;
+  drumsBtn.textContent = drumsEnabled ? "Drums: On" : "Drums: Off";
+  pushDrums();
+});
+
+drumLevel.input.addEventListener("input", () => {
+  const v = Number(drumLevel.input.value);
+  setSliderText(drumLevel.right, v);
+  drumParams[drumEdit].level = v;
+  pushDrums();
+});
+
+drumTune.input.addEventListener("input", () => {
+  const v = Number(drumTune.input.value) | 0;
+  drumTune.right.textContent = String(v);
+  drumParams[drumEdit].tune = v;
+  pushDrums();
+});
+
+drumDecay.input.addEventListener("input", () => {
+  const v = Number(drumDecay.input.value);
+  setSliderText(drumDecay.right, v);
+  drumParams[drumEdit].decay = v;
+  pushDrums();
+});
+
+syncDrumUi();
+
+advanced.append(transportWrap, arpWrap, drumsWrap);controls.append(advanced);
 
 top.append(controls);
 
@@ -453,7 +606,9 @@ async function startAudio() {
   try {
     await engine.start();
     audioReady = true;
+    pushTempo();
     pushArp();
+    pushDrums();
 
     engine.setParam(PARAM_WAVEFORM, waveform);
     engine.setParam(PARAM_OSC2_WAVEFORM, osc2Waveform);
@@ -520,4 +675,7 @@ setSliderText(fSus.right, Number(fSus.input.value));
 setSliderText(fRel.right, Number(fRel.input.value));
 
 setOctave(0);
+
+
+
 

@@ -50,18 +50,34 @@ export type ControlMsg =
 
 export type InitMsg = { type: "initWasm"; bytes: ArrayBuffer };
 
+export type TempoMsg = { type: "tempo"; bpm: number };
+
 export type ArpPattern = "up" | "down" | "updown" | "random" | "asPlayed";
 
-// steps: length 16; 0=REST, 1=GATE, 2=TIE
+// steps: length 16; 0=OFF/REST, 1=ON/GATE
 export type ArpMsg = {
   type: "arp";
   enabled: boolean;
-  bpm: number;
   octaves: number;
   pattern: ArpPattern;
   steps: number[];
 };
 
-export type InMsg = InitMsg | ControlMsg | ArpMsg;
+export type DrumId = "kick" | "snare" | "ch" | "oh";
+
+export type DrumSamplesMsg = {
+  type: "drumSamples";
+  sr: number;
+  samples: { id: DrumId; pcm: Float32Array }[];
+};
+
+export type DrumMsg = {
+  type: "drums";
+  enabled: boolean;
+  patterns: Record<DrumId, number[]>;
+  params: Record<DrumId, { level: number; tune: number; decay: number }>;
+};
+
+export type InMsg = InitMsg | ControlMsg | TempoMsg | ArpMsg | DrumSamplesMsg | DrumMsg;
 
 export type WorkletStatusMsg = { type: "ready" } | { type: "error"; message: string };
