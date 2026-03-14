@@ -1,6 +1,13 @@
 import { AudioEngine } from "./audio/engine";
 import { PARAM_ATTACK, PARAM_CUTOFF, PARAM_RELEASE, PARAM_VOLUME, PARAM_WAVEFORM } from "./audio/protocol";
 import { ThumbKeyboard, type KeyEvent } from "./ui/keyboard";
+import { TypingKeyboard } from "./ui/typing_keyboard";
+
+function isProbablyPhone(): boolean {
+  const ud = (navigator as any).userAgentData as undefined | { mobile?: boolean };
+  if (ud && typeof ud.mobile === "boolean") return ud.mobile;
+  return /iPhone|iPod|Android.*Mobile|Windows Phone/i.test(navigator.userAgent);
+}
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -16,13 +23,14 @@ const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Missing #app");
 
 const engine = new AudioEngine();
+const isPhone = isProbablyPhone();
 
 const top = el("div", "top");
 const title = el("div", "title");
 const h1 = el("h1");
 h1.textContent = "Thumb Synth";
 const hint = el("div", "hint");
-hint.textContent = "Tap Start, then play the keyboard with your thumbs.";
+hint.textContent = isPhone ? "Tap Start, then play the keyboard with your thumbs." : "Click Start, then play: A W S E D F T G Y H U J K (Z/X octave).";
 title.append(h1, hint);
 top.append(title);
 
@@ -85,6 +93,7 @@ app.append(top, el("div"), keyboardWrap);
 
 let waveform: 0 | 1 = 0;
 let octaveShift = 0;
+let audioReady = false;
 
 cutoff.input.addEventListener("input", () => {
   const v = Number(cutoff.input.value);
@@ -124,22 +133,36 @@ const keyboard = new ThumbKeyboard(canvas, (ev: KeyEvent) => {
   }
 });
 
+let typing: TypingKeyboard | null = null;
+
 function setOctave(n: number) {
   octaveShift = Math.max(-2, Math.min(2, n | 0));
   octLabel.textContent = String(octaveShift);
   keyboard.setOctaveShift(octaveShift);
+  typing?.syncBaseNote();
 }
 octDown.addEventListener("click", () => setOctave(octaveShift - 1));
 octUp.addEventListener("click", () => setOctave(octaveShift + 1));
+
+if (!isPhone) {
+  typing = new TypingKeyboard({
+    enabled: () => audioReady,
+    getBaseNote: () => 60 + octaveShift * 12,
+    noteOn: (note, velocity) => engine.noteOn(note, velocity),
+    noteOff: (note) => engine.noteOff(note),
+    octaveDelta: (d) => setOctave(octaveShift + d)
+  });
+}
+
 
 const overlay = el("div", "overlay");
 const card = el("div", "card");
 const h2 = el("h2");
 h2.textContent = "Start Audio";
 const p = el("p");
-p.textContent = "Mobile browsers require a tap before audio can start. After starting, play the keyboard. Slide for gliss.";
+p.textContent = isPhone ? "Mobile browsers require a tap before audio can start. After starting, play the keyboard. Slide for gliss." : "Browsers require a click before audio can start. After starting, use the keys (A…K) or the on-screen keyboard.";
 const start2 = el("button", "btn primary");
-start2.textContent = "Tap to Start";
+start2.textContent = isPhone ? "Tap to Start" : "Click to Start";
 const err = el("div", "err");
 card.append(h2, p, start2, err);
 overlay.append(card);
@@ -152,6 +175,7 @@ async function startAudio() {
 
   try {
     await engine.start();
+    audioReady = true;
     engine.setParam(PARAM_WAVEFORM, waveform);
     engine.setParam(PARAM_CUTOFF, Number(cutoff.input.value));
     engine.setParam(PARAM_ATTACK, Number(attack.input.value));
@@ -168,6 +192,7 @@ async function startAudio() {
     err.textContent =
       `Audio failed to start.\n${msg}\n\n` +
       "Tip: the Rust build step creates `web/public/wasm/synth.wasm`. Run `npm run dev` from `web/`.";
+    audioReady = false;
     startBtn.disabled = false;
     start2.disabled = false;
   }
