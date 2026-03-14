@@ -420,8 +420,207 @@ drumDecay.input.addEventListener("input", () => {
 
 syncDrumUi();
 
-advanced.append(transportWrap, arpWrap, drumsWrap);controls.append(advanced);
 
+// Mixer (Advanced)
+let mixMaster = 0.9;
+let mixSynth = 1.0;
+let mixDrums = 1.0;
+let sendSynth = 0.25;
+let sendDrums = 0.1;
+
+function pushMix() {
+  engine.setMix({ master: mixMaster, synth: mixSynth, drums: mixDrums, sendSynth, sendDrums });
+}
+
+const mixerWrap = el("div", "mixer");
+const mixRow1 = el("div", "row");
+const mixMasterSl = makeSlider("Master", 0, 1, 0.001, mixMaster);
+const mixSynthSl = makeSlider("Synth", 0, 1, 0.001, mixSynth);
+mixRow1.append(mixMasterSl.wrap, mixSynthSl.wrap);
+
+const mixRow2 = el("div", "row");
+const mixDrumsSl = makeSlider("Drums", 0, 1, 0.001, mixDrums);
+const sendSynthSl = makeSlider("FX Send (Synth)", 0, 1, 0.001, sendSynth);
+mixRow2.append(mixDrumsSl.wrap, sendSynthSl.wrap);
+
+const mixRow3 = el("div", "row one");
+const sendDrumsSl = makeSlider("FX Send (Drums)", 0, 1, 0.001, sendDrums);
+mixRow3.append(sendDrumsSl.wrap);
+
+mixerWrap.append(mixRow1, mixRow2, mixRow3);
+
+mixMasterSl.input.addEventListener("input", () => {
+  const v = Number(mixMasterSl.input.value);
+  setSliderText(mixMasterSl.right, v);
+  mixMaster = v;
+  pushMix();
+});
+
+mixSynthSl.input.addEventListener("input", () => {
+  const v = Number(mixSynthSl.input.value);
+  setSliderText(mixSynthSl.right, v);
+  mixSynth = v;
+  pushMix();
+});
+
+mixDrumsSl.input.addEventListener("input", () => {
+  const v = Number(mixDrumsSl.input.value);
+  setSliderText(mixDrumsSl.right, v);
+  mixDrums = v;
+  pushMix();
+});
+
+sendSynthSl.input.addEventListener("input", () => {
+  const v = Number(sendSynthSl.input.value);
+  setSliderText(sendSynthSl.right, v);
+  sendSynth = v;
+  pushMix();
+});
+
+sendDrumsSl.input.addEventListener("input", () => {
+  const v = Number(sendDrumsSl.input.value);
+  setSliderText(sendDrumsSl.right, v);
+  sendDrums = v;
+  pushMix();
+});
+
+setSliderText(mixMasterSl.right, Number(mixMasterSl.input.value));
+setSliderText(mixSynthSl.right, Number(mixSynthSl.input.value));
+setSliderText(mixDrumsSl.right, Number(mixDrumsSl.input.value));
+setSliderText(sendSynthSl.right, Number(sendSynthSl.input.value));
+setSliderText(sendDrumsSl.right, Number(sendDrumsSl.input.value));
+
+// FX (Advanced)
+let fxDrive = 0.2;
+let delayEnabled = true;
+let delayBeats = 0.5;
+let delayFeedback = 0.35;
+let delayReturn = 0.25;
+let reverbEnabled = true;
+let reverbDecay = 0.45;
+let reverbDamp = 0.4;
+let reverbReturn = 0.18;
+
+function pushFx() {
+  engine.setFx({
+    drive: fxDrive,
+    delay: { enabled: delayEnabled, beats: delayBeats, feedback: delayFeedback, return: delayReturn },
+    reverb: { enabled: reverbEnabled, decay: reverbDecay, damp: reverbDamp, return: reverbReturn }
+  });
+}
+
+const fxWrap = el("div", "fx");
+
+const fxDriveRow = el("div", "row one");
+const fxDriveSl = makeSlider("Drive", 0, 1, 0.001, fxDrive);
+fxDriveRow.append(fxDriveSl.wrap);
+fxWrap.append(fxDriveRow);
+
+const delayBar = el("div", "btnbar");
+const delayBtn = el("button", "btn");
+delayBtn.textContent = delayEnabled ? "Delay: On" : "Delay: Off";
+delayBar.append(delayBtn);
+fxWrap.append(delayBar);
+
+const delayRow1 = el("div", "row");
+const delayTimeSl = makeSlider("Time (beats)", 0.25, 2.0, 0.01, delayBeats);
+const delayFbSl = makeSlider("Feedback", 0, 0.95, 0.001, delayFeedback);
+delayRow1.append(delayTimeSl.wrap, delayFbSl.wrap);
+fxWrap.append(delayRow1);
+
+const delayRow2 = el("div", "row one");
+const delayRetSl = makeSlider("Return", 0, 1, 0.001, delayReturn);
+delayRow2.append(delayRetSl.wrap);
+fxWrap.append(delayRow2);
+
+const revBar = el("div", "btnbar");
+const revBtn = el("button", "btn");
+revBtn.textContent = reverbEnabled ? "Reverb: On" : "Reverb: Off";
+revBar.append(revBtn);
+fxWrap.append(revBar);
+
+const revRow1 = el("div", "row");
+const revDecaySl = makeSlider("Decay", 0, 1, 0.001, reverbDecay);
+const revDampSl = makeSlider("Damp", 0, 1, 0.001, reverbDamp);
+revRow1.append(revDecaySl.wrap, revDampSl.wrap);
+fxWrap.append(revRow1);
+
+const revRow2 = el("div", "row one");
+const revRetSl = makeSlider("Return", 0, 1, 0.001, reverbReturn);
+revRow2.append(revRetSl.wrap);
+fxWrap.append(revRow2);
+
+fxDriveSl.input.addEventListener("input", () => {
+  const v = Number(fxDriveSl.input.value);
+  setSliderText(fxDriveSl.right, v);
+  fxDrive = v;
+  pushFx();
+});
+
+delayBtn.addEventListener("click", () => {
+  delayEnabled = !delayEnabled;
+  delayBtn.textContent = delayEnabled ? "Delay: On" : "Delay: Off";
+  pushFx();
+});
+
+delayTimeSl.input.addEventListener("input", () => {
+  const v = Number(delayTimeSl.input.value);
+  setSliderText(delayTimeSl.right, v);
+  delayBeats = v;
+  pushFx();
+});
+
+delayFbSl.input.addEventListener("input", () => {
+  const v = Number(delayFbSl.input.value);
+  setSliderText(delayFbSl.right, v);
+  delayFeedback = v;
+  pushFx();
+});
+
+delayRetSl.input.addEventListener("input", () => {
+  const v = Number(delayRetSl.input.value);
+  setSliderText(delayRetSl.right, v);
+  delayReturn = v;
+  pushFx();
+});
+
+revBtn.addEventListener("click", () => {
+  reverbEnabled = !reverbEnabled;
+  revBtn.textContent = reverbEnabled ? "Reverb: On" : "Reverb: Off";
+  pushFx();
+});
+
+revDecaySl.input.addEventListener("input", () => {
+  const v = Number(revDecaySl.input.value);
+  setSliderText(revDecaySl.right, v);
+  reverbDecay = v;
+  pushFx();
+});
+
+revDampSl.input.addEventListener("input", () => {
+  const v = Number(revDampSl.input.value);
+  setSliderText(revDampSl.right, v);
+  reverbDamp = v;
+  pushFx();
+});
+
+revRetSl.input.addEventListener("input", () => {
+  const v = Number(revRetSl.input.value);
+  setSliderText(revRetSl.right, v);
+  reverbReturn = v;
+  pushFx();
+});
+
+setSliderText(fxDriveSl.right, Number(fxDriveSl.input.value));
+setSliderText(delayTimeSl.right, Number(delayTimeSl.input.value));
+setSliderText(delayFbSl.right, Number(delayFbSl.input.value));
+setSliderText(delayRetSl.right, Number(delayRetSl.input.value));
+setSliderText(revDecaySl.right, Number(revDecaySl.input.value));
+setSliderText(revDampSl.right, Number(revDampSl.input.value));
+setSliderText(revRetSl.right, Number(revRetSl.input.value));
+
+advanced.append(transportWrap, arpWrap, drumsWrap, mixerWrap, fxWrap);
+controls.append(advanced);
 top.append(controls);
 
 const keyboardWrap = el("div", "keyboardWrap");
@@ -609,6 +808,8 @@ async function startAudio() {
     pushTempo();
     pushArp();
     pushDrums();
+    pushMix();
+    pushFx();
 
     engine.setParam(PARAM_WAVEFORM, waveform);
     engine.setParam(PARAM_OSC2_WAVEFORM, osc2Waveform);
@@ -675,6 +876,9 @@ setSliderText(fSus.right, Number(fSus.input.value));
 setSliderText(fRel.right, Number(fRel.input.value));
 
 setOctave(0);
+
+
+
 
 
 

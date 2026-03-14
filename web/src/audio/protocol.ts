@@ -78,6 +78,22 @@ export type DrumMsg = {
   params: Record<DrumId, { level: number; tune: number; decay: number }>;
 };
 
-export type InMsg = InitMsg | ControlMsg | TempoMsg | ArpMsg | DrumSamplesMsg | DrumMsg;
+export type MixMsg = {
+  type: "mix";
+  master: number;
+  synth: number;
+  drums: number;
+  sendSynth: number;
+  sendDrums: number;
+};
+
+export type FxMsg = {
+  type: "fx";
+  drive: number;
+  delay: { enabled: boolean; beats: number; feedback: number; return: number };
+  reverb: { enabled: boolean; decay: number; damp: number; return: number };
+};
+
+export type InMsg = InitMsg | ControlMsg | TempoMsg | ArpMsg | DrumSamplesMsg | DrumMsg | MixMsg | FxMsg;
 
 export type WorkletStatusMsg = { type: "ready" } | { type: "error"; message: string };

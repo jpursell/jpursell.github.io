@@ -1,4 +1,15 @@
-import type { ArpMsg, ArpPattern, DrumId, DrumMsg, DrumSamplesMsg, InMsg, TempoMsg, WorkletStatusMsg } from "./protocol";
+import type {
+  ArpMsg,
+  ArpPattern,
+  DrumId,
+  DrumMsg,
+  DrumSamplesMsg,
+  FxMsg,
+  InMsg,
+  MixMsg,
+  TempoMsg,
+  WorkletStatusMsg
+} from "./protocol";
 
 const MAX_BLOCK = 128;
 
@@ -71,6 +82,140 @@ function defaultDrumParams(): Record<DrumId, DrumParams> {
   };
 }
 
+function softclip(x: number): number {
+  const a = Math.abs(x);
+  return x / (1 + a);
+}
+
+class TempoDelay {
+  private buf: Float32Array;
+  private write = 0;
+
+  constructor(maxSeconds: number) {
+    const n = Math.max(8, Math.ceil(sampleRate * maxSeconds));
+    this.buf = new Float32Array(n);
+  }
+
+  clear(): void {
+    this.buf.fill(0);
+    this.write = 0;
+  }
+
+  process(x: number, enabled: boolean, delaySamples: number, feedback: number): number {
+    if (!enabled) {
+      // write zeros so re-enabling doesn't resurrect old echoes
+      this.buf[this.write] = 0;
+      this.write = (this.write + 1) % this.buf.length;
+      return 0;
+    }
+
+    const len = this.buf.length;
+    const ds = Math.max(1, Math.min(len - 1, delaySamples | 0));
+    const read = this.write - ds;
+    const readIdx = read < 0 ? read + len : read;
+
+    const y = this.buf[readIdx];
+    this.buf[this.write] = x + y * feedback;
+    this.write = (this.write + 1) % len;
+    return y;
+  }
+}
+
+class Comb {
+  private buf: Float32Array;
+  private idx = 0;
+  private filterStore = 0;
+
+  constructor(len: number) {
+    this.buf = new Float32Array(Math.max(8, len | 0));
+  }
+
+  clear(): void {
+    this.buf.fill(0);
+    this.idx = 0;
+    this.filterStore = 0;
+  }
+
+  process(x: number, feedback: number, damp: number): number {
+    const y = this.buf[this.idx];
+
+    // 1-pole lowpass in feedback path
+    const d = damp;
+    this.filterStore = y * (1 - d) + this.filterStore * d;
+
+    this.buf[this.idx] = x + this.filterStore * feedback;
+    this.idx++;
+    if (this.idx >= this.buf.length) this.idx = 0;
+
+    return y;
+  }
+}
+
+class Allpass {
+  private buf: Float32Array;
+  private idx = 0;
+  private fb: number;
+
+  constructor(len: number, feedback = 0.5) {
+    this.buf = new Float32Array(Math.max(8, len | 0));
+    this.fb = feedback;
+  }
+
+  clear(): void {
+    this.buf.fill(0);
+    this.idx = 0;
+  }
+
+  process(x: number): number {
+    const y = this.buf[this.idx];
+    const out = -x + y;
+    this.buf[this.idx] = x + y * this.fb;
+    this.idx++;
+    if (this.idx >= this.buf.length) this.idx = 0;
+    return out;
+  }
+}
+
+class SchroederReverb {
+  private combs: Comb[];
+  private allpasses: Allpass[];
+
+  constructor() {
+    const scale = sampleRate / 44100;
+
+    // Freeverb-ish lengths (scaled).
+    const combLens = [1116, 1188, 1277, 1356].map((n) => Math.round(n * scale));
+    const apLens = [556, 441].map((n) => Math.round(n * scale));
+
+    this.combs = combLens.map((n) => new Comb(n));
+    this.allpasses = apLens.map((n) => new Allpass(n, 0.5));
+  }
+
+  clear(): void {
+    for (const c of this.combs) c.clear();
+    for (const a of this.allpasses) a.clear();
+  }
+
+  process(x: number, enabled: boolean, decay01: number, damp01: number): number {
+    if (!enabled) return 0;
+
+    const decay = clamp01(decay01);
+    const damp = clamp01(damp01);
+
+    // Map to stable ranges.
+    const feedback = Math.min(0.98, 0.4 + decay * 0.55);
+    const d = 0.05 + damp * 0.85;
+
+    let y = 0;
+    for (const c of this.combs) y += c.process(x, feedback, d);
+    y *= 0.25;
+
+    for (const a of this.allpasses) y = a.process(y);
+
+    return y;
+  }
+}
+
 class SynthProcessor extends AudioWorkletProcessor {
   private exports: WasmExports | null = null;
   private ready = false;
@@ -105,6 +250,26 @@ class SynthProcessor extends AudioWorkletProcessor {
   private drumSamples: Partial<Record<DrumId, Float32Array>> = {};
   private drumSrcToOut = 1;
   private drumVoices: DrumVoice[] = [];
+
+  private mix: Omit<MixMsg, "type"> = {
+    master: 0.9,
+    synth: 1,
+    drums: 1,
+    sendSynth: 0.25,
+    sendDrums: 0.1
+  };
+
+  private fx: Omit<FxMsg, "type"> = {
+    drive: 0.2,
+    delay: { enabled: true, beats: 0.5, feedback: 0.35, return: 0.25 },
+    reverb: { enabled: true, decay: 0.45, damp: 0.4, return: 0.18 }
+  };
+
+  private delay = new TempoDelay(3.6);
+  private reverb = new SchroederReverb();
+
+  private tmpSynth = new Float32Array(MAX_BLOCK);
+  private tmpDrums = new Float32Array(MAX_BLOCK);
 
   constructor(_options: AudioWorkletNodeOptions) {
     super();
@@ -290,7 +455,7 @@ class SynthProcessor extends AudioWorkletProcessor {
     this.stepIdx = (this.stepIdx + 1) & 15;
   }
 
-  private mixDrums(out: Float32Array, offset: number, n: number): void {
+  private mixDrumsInto(dst: Float32Array, offset: number, n: number): void {
     if (this.drumVoices.length === 0) return;
 
     for (const v of this.drumVoices) {
@@ -310,7 +475,7 @@ class SynthProcessor extends AudioWorkletProcessor {
         const s1 = ip + 1 < len ? pcm[ip + 1] : s0;
         const s = s0 + (s1 - s0) * frac;
 
-        out[offset + i] += s * gain;
+        dst[offset + i] += s * gain;
 
         gain *= decayCoef;
         pos += rate;
@@ -404,6 +569,40 @@ class SynthProcessor extends AudioWorkletProcessor {
     }
   }
 
+  private applyMix(msg: MixMsg): void {
+    this.mix = {
+      master: clamp01(msg.master),
+      synth: clamp01(msg.synth),
+      drums: clamp01(msg.drums),
+      sendSynth: clamp01(msg.sendSynth),
+      sendDrums: clamp01(msg.sendDrums)
+    };
+  }
+
+  private applyFx(msg: FxMsg): void {
+    const wasDelayEnabled = this.fx.delay.enabled;
+
+    this.fx.drive = clamp01(msg.drive);
+    this.fx.delay = {
+      enabled: !!msg.delay?.enabled,
+      beats: Math.max(0.25, Math.min(2.0, Number(msg.delay?.beats) || 0.5)),
+      feedback: Math.max(0, Math.min(0.95, Number(msg.delay?.feedback) || 0)),
+      return: clamp01(Number(msg.delay?.return) || 0)
+    };
+    this.fx.reverb = {
+      enabled: !!msg.reverb?.enabled,
+      decay: clamp01(Number(msg.reverb?.decay) || 0),
+      damp: clamp01(Number(msg.reverb?.damp) || 0),
+      return: clamp01(Number(msg.reverb?.return) || 0)
+    };
+
+    if (wasDelayEnabled && !this.fx.delay.enabled) this.delay.clear();
+    if (!wasDelayEnabled && this.fx.delay.enabled) {
+      // keep existing buffer cleared so it starts clean
+      this.delay.clear();
+    }
+  }
+
   private async onMsg(msg: InMsg): Promise<void> {
     if (msg.type === "initWasm") {
       try {
@@ -439,6 +638,16 @@ class SynthProcessor extends AudioWorkletProcessor {
 
     if (msg.type === "drums") {
       this.applyDrums(msg);
+      return;
+    }
+
+    if (msg.type === "mix") {
+      this.applyMix(msg);
+      return;
+    }
+
+    if (msg.type === "fx") {
+      this.applyFx(msg);
       return;
     }
 
@@ -500,9 +709,46 @@ class SynthProcessor extends AudioWorkletProcessor {
       }
 
       const block = new Float32Array(ex.memory.buffer, ptr, n);
-      out.set(block, offset);
+      this.tmpSynth.set(block, 0);
 
-      this.mixDrums(out, offset, n);
+      this.tmpDrums.fill(0, 0, n);
+      this.mixDrumsInto(this.tmpDrums, 0, n);
+
+      // Compute delay in samples for current tempo.
+      const delaySamples = Math.round(sampleRate * (60 / Math.max(1, this.tempoBpm)) * this.fx.delay.beats);
+
+      const m = this.mix;
+      const fx = this.fx;
+
+      // Precompute drive scalar trims.
+      const drive = fx.drive;
+      const pregain = 1 + drive * 12;
+      const driveTrim = 1 / softclip(pregain);
+
+      const delayFb = fx.delay.feedback;
+      const delayRet = fx.delay.return;
+      const revRet = fx.reverb.return;
+
+      for (let i = 0; i < n; i++) {
+        let s = this.tmpSynth[i];
+        if (drive > 0.0001) {
+          s = softclip(s * pregain) * driveTrim;
+        }
+        s *= m.synth;
+
+        const d = this.tmpDrums[i] * m.drums;
+
+        const dry = s + d;
+        const sendIn = s * m.sendSynth + d * m.sendDrums;
+
+        const delayOut = this.delay.process(sendIn, fx.delay.enabled, delaySamples, delayFb) * delayRet;
+        const reverbOut = this.reverb.process(sendIn, fx.reverb.enabled, fx.reverb.decay, fx.reverb.damp) * revRet;
+
+        let y = (dry + delayOut + reverbOut) * m.master;
+        y = softclip(y);
+
+        out[offset + i] = y;
+      }
 
       offset += n;
 

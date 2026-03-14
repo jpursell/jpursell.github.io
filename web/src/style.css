@@ -282,3 +282,15 @@ canvas#keyboard {
   background: rgba(109, 211, 206, 0.16);
   border-color: rgba(109, 211, 206, 0.42);
 }
+
+
+.mixer {
+  display: grid;
+  gap: 10px;
+}
+
+.fx {
+  display: grid;
+  gap: 10px;
+}
+

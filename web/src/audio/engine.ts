@@ -4,13 +4,15 @@ import type {
   DrumId,
   DrumMsg,
   DrumSamplesMsg,
+  FxMsg,
   InitMsg,
+  MixMsg,
   SynthParamId,
   TempoMsg,
   WorkletStatusMsg
 } from "./protocol";
 
-type Msg = ControlMsg | TempoMsg | ArpMsg | DrumMsg | DrumSamplesMsg;
+type Msg = ControlMsg | TempoMsg | ArpMsg | DrumMsg | DrumSamplesMsg | MixMsg | FxMsg;
 
 type DecodedDrum = { id: DrumId; pcm: Float32Array };
 
@@ -95,6 +97,24 @@ export class AudioEngine {
       drums.map((d) => d.pcm.buffer)
     );
 
+    // One-time default mix + fx state (UI can override after start).
+    const mix: MixMsg = {
+      type: "mix",
+      master: 0.9,
+      synth: 1.0,
+      drums: 1.0,
+      sendSynth: 0.25,
+      sendDrums: 0.1
+    };
+    const fx: FxMsg = {
+      type: "fx",
+      drive: 0.2,
+      delay: { enabled: true, beats: 0.5, feedback: 0.35, return: 0.25 },
+      reverb: { enabled: true, decay: 0.45, damp: 0.4, return: 0.18 }
+    };
+    node.port.postMessage(mix);
+    node.port.postMessage(fx);
+
     node.connect(ctx.destination);
     await ctx.resume();
 
@@ -125,6 +145,14 @@ export class AudioEngine {
 
   setDrums(config: Omit<DrumMsg, "type">): void {
     this.post({ type: "drums", ...config });
+  }
+
+  setMix(config: Omit<MixMsg, "type">): void {
+    this.post({ type: "mix", ...config });
+  }
+
+  setFx(config: Omit<FxMsg, "type">): void {
+    this.post({ type: "fx", ...config });
   }
 
   private post(msg: Msg): void {
