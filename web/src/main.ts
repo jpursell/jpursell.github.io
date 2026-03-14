@@ -1,5 +1,5 @@
 import { AudioEngine } from "./audio/engine";
-import { PARAM_ATTACK, PARAM_CUTOFF, PARAM_RELEASE, PARAM_VOLUME, PARAM_WAVEFORM } from "./audio/protocol";
+import { PARAM_ATTACK, PARAM_CUTOFF, PARAM_DECAY, PARAM_FILTER_ENV_AMT, PARAM_RELEASE, PARAM_RESONANCE, PARAM_SUSTAIN, PARAM_VOLUME, PARAM_WAVEFORM } from "./audio/protocol";
 import { ThumbKeyboard, type KeyEvent } from "./ui/keyboard";
 import { TypingKeyboard } from "./ui/typing_keyboard";
 
@@ -73,15 +73,25 @@ function makeSlider(label: string, min: number, max: number, step: number, value
 
 const row1 = el("div", "row");
 const cutoff = makeSlider("Cutoff", 0, 1, 0.001, 0.45);
-const volume = makeSlider("Volume", 0, 1, 0.001, 0.55);
-row1.append(cutoff.wrap, volume.wrap);
+const resonance = makeSlider("Resonance", 0, 1, 0.001, 0.2);
+row1.append(cutoff.wrap, resonance.wrap);
 
 const row2 = el("div", "row");
-const attack = makeSlider("Attack (s)", 0.001, 2.0, 0.001, 0.01);
-const release = makeSlider("Release (s)", 0.005, 3.0, 0.001, 0.15);
-row2.append(attack.wrap, release.wrap);
+const envAmt = makeSlider("Env Amt", 0, 1, 0.001, 0.5);
+const volume = makeSlider("Volume", 0, 1, 0.001, 0.55);
+row2.append(envAmt.wrap, volume.wrap);
 
-controls.append(row1, row2);
+const row3 = el("div", "row");
+const attack = makeSlider("Attack (s)", 0.001, 2.0, 0.001, 0.01);
+const decay = makeSlider("Decay (s)", 0.005, 3.0, 0.001, 0.12);
+row3.append(attack.wrap, decay.wrap);
+
+const row4 = el("div", "row");
+const sustain = makeSlider("Sustain", 0, 1, 0.001, 0.6);
+const release = makeSlider("Release (s)", 0.005, 3.0, 0.001, 0.15);
+row4.append(sustain.wrap, release.wrap);
+
+controls.append(row1, row2, row3, row4);
 top.append(controls);
 
 const keyboardWrap = el("div", "keyboardWrap");
@@ -100,6 +110,16 @@ cutoff.input.addEventListener("input", () => {
   setSliderText(cutoff.right, v);
   engine.setParam(PARAM_CUTOFF, v);
 });
+resonance.input.addEventListener("input", () => {
+  const v = Number(resonance.input.value);
+  setSliderText(resonance.right, v);
+  engine.setParam(PARAM_RESONANCE, v);
+});
+envAmt.input.addEventListener("input", () => {
+  const v = Number(envAmt.input.value);
+  setSliderText(envAmt.right, v);
+  engine.setParam(PARAM_FILTER_ENV_AMT, v);
+});
 volume.input.addEventListener("input", () => {
   const v = Number(volume.input.value);
   setSliderText(volume.right, v);
@@ -109,6 +129,16 @@ attack.input.addEventListener("input", () => {
   const v = Number(attack.input.value);
   setSliderText(attack.right, v);
   engine.setParam(PARAM_ATTACK, v);
+});
+decay.input.addEventListener("input", () => {
+  const v = Number(decay.input.value);
+  setSliderText(decay.right, v);
+  engine.setParam(PARAM_DECAY, v);
+});
+sustain.input.addEventListener("input", () => {
+  const v = Number(sustain.input.value);
+  setSliderText(sustain.right, v);
+  engine.setParam(PARAM_SUSTAIN, v);
 });
 release.input.addEventListener("input", () => {
   const v = Number(release.input.value);
@@ -184,7 +214,11 @@ async function startAudio() {
     audioReady = true;
     engine.setParam(PARAM_WAVEFORM, waveform);
     engine.setParam(PARAM_CUTOFF, Number(cutoff.input.value));
+    engine.setParam(PARAM_RESONANCE, Number(resonance.input.value));
+    engine.setParam(PARAM_FILTER_ENV_AMT, Number(envAmt.input.value));
     engine.setParam(PARAM_ATTACK, Number(attack.input.value));
+    engine.setParam(PARAM_DECAY, Number(decay.input.value));
+    engine.setParam(PARAM_SUSTAIN, Number(sustain.input.value));
     engine.setParam(PARAM_RELEASE, Number(release.input.value));
     engine.setParam(PARAM_VOLUME, Number(volume.input.value));
 
@@ -208,8 +242,12 @@ startBtn.addEventListener("click", () => void startAudio());
 start2.addEventListener("click", () => void startAudio());
 
 setSliderText(cutoff.right, Number(cutoff.input.value));
+setSliderText(resonance.right, Number(resonance.input.value));
+setSliderText(envAmt.right, Number(envAmt.input.value));
 setSliderText(volume.right, Number(volume.input.value));
 setSliderText(attack.right, Number(attack.input.value));
+setSliderText(decay.right, Number(decay.input.value));
+setSliderText(sustain.right, Number(sustain.input.value));
 setSliderText(release.right, Number(release.input.value));
 setOctave(0);
 
