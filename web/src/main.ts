@@ -148,8 +148,14 @@ if (!isPhone) {
   typing = new TypingKeyboard({
     enabled: () => audioReady,
     getBaseNote: () => 60 + octaveShift * 12,
-    noteOn: (note, velocity) => engine.noteOn(note, velocity),
-    noteOff: (note) => engine.noteOff(note),
+    noteOn: (note, velocity) => {
+      keyboard.setExternalActive(note, true);
+      engine.noteOn(note, velocity);
+    },
+    noteOff: (note) => {
+      keyboard.setExternalActive(note, false);
+      engine.noteOff(note);
+    },
     octaveDelta: (d) => setOctave(octaveShift + d)
   });
 }
@@ -206,4 +212,5 @@ setSliderText(volume.right, Number(volume.input.value));
 setSliderText(attack.right, Number(attack.input.value));
 setSliderText(release.right, Number(release.input.value));
 setOctave(0);
+
 

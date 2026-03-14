@@ -23,6 +23,7 @@ export class ThumbKeyboard {
   private dpr = 1;
   private keys: KeyRect[] = [];
   private active = new Map<number, number>(); // pointerId -> note
+  private externalActive = new Set<number>();
   private baseNote = 60; // C4
   private octaves = 2;
 
@@ -47,6 +48,20 @@ export class ThumbKeyboard {
     const s = Math.max(-2, Math.min(2, shift | 0));
     this.baseNote = 60 + s * 12;
     this.layout();
+    this.draw();
+  }
+
+  setExternalActive(note: number, active: boolean): void {
+    if (active) {
+      this.externalActive.add(note);
+    } else {
+      this.externalActive.delete(note);
+    }
+    this.draw();
+  }
+
+  clearExternalActive(): void {
+    this.externalActive.clear();
     this.draw();
   }
 
@@ -107,6 +122,7 @@ export class ThumbKeyboard {
     }
 
     const activeNotes = new Set(this.active.values());
+    for (const n of this.externalActive) activeNotes.add(n);
 
     for (const k of this.keys.filter((x) => !x.black)) {
       const isActive = activeNotes.has(k.note);
@@ -182,4 +198,5 @@ export class ThumbKeyboard {
     return null;
   }
 }
+
 
