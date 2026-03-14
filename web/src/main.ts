@@ -125,8 +125,8 @@ row4.append(sustain.wrap, release.wrap);
 controls.append(row1, row2, row3, row4);
 
 // Advanced controls (collapsed)
-const advanced = el("div");
-advanced.style.display = "none";
+const advanced = el("div", "advanced");
+advanced.hidden = true;
 
 const advBar = el("div", "btnbar");
 const osc2WaveBtn = el("button", "btn");
@@ -187,8 +187,8 @@ octDown.addEventListener("click", () => setOctave(octaveShift - 1));
 octUp.addEventListener("click", () => setOctave(octaveShift + 1));
 
 advBtn.addEventListener("click", () => {
-  const open = advanced.style.display !== "none";
-  advanced.style.display = open ? "none" : "grid";
+  const open = document.body.classList.toggle("advanced-open");
+  advanced.hidden = !open;
 });
 
 cutoff.input.addEventListener("input", () => {
@@ -412,3 +412,4 @@ setSliderText(fSus.right, Number(fSus.input.value));
 setSliderText(fRel.right, Number(fRel.input.value));
 
 setOctave(0);
+

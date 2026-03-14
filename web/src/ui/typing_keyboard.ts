@@ -18,7 +18,17 @@ function shouldIgnoreKeyEvent(e: KeyboardEvent): boolean {
   if (el.isContentEditable) return true;
 
   const tag = el.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  if (tag === "TEXTAREA" || tag === "SELECT") return true;
+
+  if (tag === "INPUT") {
+    const input = el as HTMLInputElement;
+    const t = (input.type || "").toLowerCase();
+    // Allow playing while sliders are focused.
+    if (t === "range") return false;
+    return true;
+  }
+
+  return false;
 }
 
 export class TypingKeyboard {
@@ -37,12 +47,23 @@ export class TypingKeyboard {
   private onFocusInBound = (e: FocusEvent) => {
     const el = e.target as HTMLElement | null;
     if (!el) return;
+
     if (el.isContentEditable) {
       this.stop();
       return;
     }
+
     const tag = el.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") this.stop();
+    if (tag === "TEXTAREA" || tag === "SELECT") {
+      this.stop();
+      return;
+    }
+
+    if (tag === "INPUT") {
+      const input = el as HTMLInputElement;
+      const t = (input.type || "").toLowerCase();
+      if (t !== "range") this.stop();
+    }
   };
 
   constructor(opts: TypingKeyboardOpts) {
@@ -156,3 +177,4 @@ export class TypingKeyboard {
     this.opts.noteOn(nextNote, 0.85);
   }
 }
+
