@@ -143,13 +143,22 @@ impl Synth {
                 self.phase -= 1.0;
             }
             let osc = match self.waveform {
-                Waveform::Saw => 2.0 * self.phase - 1.0,
+                Waveform::Saw => {
+                    // PolyBLEP band-limited saw
+                    let t = self.phase;
+                    let mut y = 2.0 * t - 1.0;
+                    y -= poly_blep(t, phase_inc);
+                    y
+                }
                 Waveform::Square => {
-                    if self.phase < 0.5 {
-                        1.0
-                    } else {
-                        -1.0
-                    }
+                    // PolyBLEP band-limited square (50% duty)
+                    let t = self.phase;
+                    let pw = 0.5;
+                    let mut y = if t < pw { 1.0 } else { -1.0 };
+                    y += poly_blep(t, phase_inc);
+                    let t2 = (t - pw + 1.0) % 1.0;
+                    y -= poly_blep(t2, phase_inc);
+                    y
                 }
             };
 
@@ -159,6 +168,25 @@ impl Synth {
             out[i] = self.lp_state;
         }
     }
+}
+
+
+#[inline]
+fn poly_blep(t: f32, dt: f32) -> f32 {
+    // Polynomial band-limited step (PolyBLEP).
+    // t: phase in [0,1), dt: phase increment per sample.
+    if dt <= 0.0 {
+        return 0.0;
+    }
+    if t < dt {
+        let x = t / dt;
+        return x + x - x * x - 1.0;
+    }
+    if t > 1.0 - dt {
+        let x = (t - 1.0) / dt;
+        return x * x + x + x + 1.0;
+    }
+    0.0
 }
 
 fn midi_note_to_hz(note: u8) -> f32 {
@@ -214,3 +242,28 @@ pub unsafe extern "C" fn render(frames: usize) -> *const f32 {
 
 
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn poly_blep_basic_values() {
+        let dt = 0.1;
+        assert!((poly_blep(0.0, dt) + 1.0).abs() < 1e-6);
+        assert!(poly_blep(dt, dt).abs() < 1e-6);
+        assert!((poly_blep(0.05, dt) + 0.25).abs() < 1e-6);
+        assert!((poly_blep(0.95, dt) - 0.25).abs() < 1e-6);
+        assert_eq!(poly_blep(0.5, dt), 0.0);
+        assert_eq!(poly_blep(0.5, 0.0), 0.0);
+    }
+
+    #[test]
+    fn render_is_finite() {
+        let mut s = Synth::new(48_000.0);
+        s.note_on(69, 1.0);
+        let mut out = [0.0_f32; 128];
+        s.render_into(&mut out);
+        assert!(out.iter().all(|v| v.is_finite()));
+    }
+}
