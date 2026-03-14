@@ -1,5 +1,26 @@
 import { AudioEngine } from "./audio/engine";
-import { PARAM_ATTACK, PARAM_CUTOFF, PARAM_DECAY, PARAM_FILTER_ENV_AMT, PARAM_RELEASE, PARAM_RESONANCE, PARAM_SUSTAIN, PARAM_VOLUME, PARAM_WAVEFORM } from "./audio/protocol";
+import {
+  PARAM_ATTACK,
+  PARAM_CUTOFF,
+  PARAM_DECAY,
+  PARAM_DETUNE_CENTS,
+  PARAM_FILT_ATTACK,
+  PARAM_FILT_DECAY,
+  PARAM_FILT_RELEASE,
+  PARAM_FILT_SUSTAIN,
+  PARAM_FILTER_ENV_AMT,
+  PARAM_GLIDE,
+  PARAM_KEYTRACK,
+  PARAM_NOISE,
+  PARAM_OSC2_SEMITONES,
+  PARAM_OSC2_WAVEFORM,
+  PARAM_OSC_MIX,
+  PARAM_RELEASE,
+  PARAM_RESONANCE,
+  PARAM_SUSTAIN,
+  PARAM_VOLUME,
+  PARAM_WAVEFORM
+} from "./audio/protocol";
 import { ThumbKeyboard, type KeyEvent } from "./ui/keyboard";
 import { TypingKeyboard } from "./ui/typing_keyboard";
 
@@ -30,7 +51,9 @@ const title = el("div", "title");
 const h1 = el("h1");
 h1.textContent = "Thumb Synth";
 const hint = el("div", "hint");
-hint.textContent = isPhone ? "Tap Start, then play the keyboard with your thumbs." : "Click Start, then play: A W S E D F T G Y H U J K (Z/X octave).";
+hint.textContent = isPhone
+  ? "Tap Start, then play the keyboard with your thumbs."
+  : "Click Start, then play: A W S E D F T G Y H U J K (Z/X octave).";
 title.append(h1, hint);
 top.append(title);
 
@@ -39,8 +62,13 @@ const btnbar = el("div", "btnbar");
 
 const startBtn = el("button", "btn primary");
 startBtn.textContent = "Start Audio";
+
 const waveBtn = el("button", "btn");
-waveBtn.textContent = "Wave: Saw";
+waveBtn.textContent = "Osc1: Saw";
+
+const advBtn = el("button", "btn");
+advBtn.textContent = "Advanced";
+
 const octaveWrap = el("div", "octave");
 octaveWrap.textContent = "Octave:";
 const octDown = el("button", "btn");
@@ -50,10 +78,12 @@ octUp.textContent = "+";
 const octLabel = el("span");
 octLabel.textContent = "0";
 octaveWrap.append(octDown, octLabel, octUp);
-btnbar.append(startBtn, waveBtn, octaveWrap);
+
+btnbar.append(startBtn, waveBtn, advBtn, octaveWrap);
 controls.append(btnbar);
 
-function makeSlider(label: string, min: number, max: number, step: number, value: number) {
+type Slider = { wrap: HTMLDivElement; input: HTMLInputElement; right: HTMLSpanElement };
+function makeSlider(label: string, min: number, max: number, step: number, value: number): Slider {
   const wrap = el("div", "control");
   const lab = el("label");
   const left = el("span");
@@ -71,6 +101,7 @@ function makeSlider(label: string, min: number, max: number, step: number, value
   return { wrap, input, right };
 }
 
+// Main controls (4 rows)
 const row1 = el("div", "row");
 const cutoff = makeSlider("Cutoff", 0, 1, 0.001, 0.45);
 const resonance = makeSlider("Resonance", 0, 1, 0.001, 0.2);
@@ -92,6 +123,45 @@ const release = makeSlider("Release (s)", 0.005, 3.0, 0.001, 0.15);
 row4.append(sustain.wrap, release.wrap);
 
 controls.append(row1, row2, row3, row4);
+
+// Advanced controls (collapsed)
+const advanced = el("div");
+advanced.style.display = "none";
+
+const advBar = el("div", "btnbar");
+const osc2WaveBtn = el("button", "btn");
+osc2WaveBtn.textContent = "Osc2: Saw";
+advBar.append(osc2WaveBtn);
+advanced.append(advBar);
+
+const row5 = el("div", "row");
+const oscMix = makeSlider("Osc Mix", 0, 1, 0.001, 0.35);
+const detune = makeSlider("Detune (c)", -50, 50, 0.1, 0);
+row5.append(oscMix.wrap, detune.wrap);
+
+const row6 = el("div", "row");
+const osc2Semi = makeSlider("Osc2 Semi", -24, 24, 1, 0);
+const noise = makeSlider("Noise", 0, 1, 0.001, 0);
+row6.append(osc2Semi.wrap, noise.wrap);
+
+const row7 = el("div", "row");
+const glide = makeSlider("Glide (s)", 0, 0.75, 0.001, 0);
+const keytrack = makeSlider("Keytrack", 0, 1, 0.001, 0);
+row7.append(glide.wrap, keytrack.wrap);
+
+const row8 = el("div", "row");
+const fAtk = makeSlider("F.Attack (s)", 0.001, 2.0, 0.001, 0.005);
+const fDec = makeSlider("F.Decay (s)", 0.005, 3.0, 0.001, 0.12);
+row8.append(fAtk.wrap, fDec.wrap);
+
+const row9 = el("div", "row");
+const fSus = makeSlider("F.Sustain", 0, 1, 0.001, 0);
+const fRel = makeSlider("F.Release (s)", 0.005, 3.0, 0.001, 0.15);
+row9.append(fSus.wrap, fRel.wrap);
+
+advanced.append(row5, row6, row7, row8, row9);
+controls.append(advanced);
+
 top.append(controls);
 
 const keyboardWrap = el("div", "keyboardWrap");
@@ -102,8 +172,24 @@ keyboardWrap.append(canvas);
 app.append(top, el("div"), keyboardWrap);
 
 let waveform: 0 | 1 = 0;
+let osc2Waveform: 0 | 1 = 0;
 let octaveShift = 0;
 let audioReady = false;
+
+function setOctave(n: number) {
+  octaveShift = Math.max(-2, Math.min(2, n | 0));
+  octLabel.textContent = String(octaveShift);
+  keyboard.setOctaveShift(octaveShift);
+  typing?.syncBaseNote();
+}
+
+octDown.addEventListener("click", () => setOctave(octaveShift - 1));
+octUp.addEventListener("click", () => setOctave(octaveShift + 1));
+
+advBtn.addEventListener("click", () => {
+  const open = advanced.style.display !== "none";
+  advanced.style.display = open ? "none" : "grid";
+});
 
 cutoff.input.addEventListener("input", () => {
   const v = Number(cutoff.input.value);
@@ -146,10 +232,67 @@ release.input.addEventListener("input", () => {
   engine.setParam(PARAM_RELEASE, v);
 });
 
+oscMix.input.addEventListener("input", () => {
+  const v = Number(oscMix.input.value);
+  setSliderText(oscMix.right, v);
+  engine.setParam(PARAM_OSC_MIX, v);
+});
+detune.input.addEventListener("input", () => {
+  const v = Number(detune.input.value);
+  setSliderText(detune.right, v);
+  engine.setParam(PARAM_DETUNE_CENTS, v);
+});
+osc2Semi.input.addEventListener("input", () => {
+  const v = Number(osc2Semi.input.value);
+  setSliderText(osc2Semi.right, v);
+  engine.setParam(PARAM_OSC2_SEMITONES, v);
+});
+noise.input.addEventListener("input", () => {
+  const v = Number(noise.input.value);
+  setSliderText(noise.right, v);
+  engine.setParam(PARAM_NOISE, v);
+});
+glide.input.addEventListener("input", () => {
+  const v = Number(glide.input.value);
+  setSliderText(glide.right, v);
+  engine.setParam(PARAM_GLIDE, v);
+});
+keytrack.input.addEventListener("input", () => {
+  const v = Number(keytrack.input.value);
+  setSliderText(keytrack.right, v);
+  engine.setParam(PARAM_KEYTRACK, v);
+});
+fAtk.input.addEventListener("input", () => {
+  const v = Number(fAtk.input.value);
+  setSliderText(fAtk.right, v);
+  engine.setParam(PARAM_FILT_ATTACK, v);
+});
+fDec.input.addEventListener("input", () => {
+  const v = Number(fDec.input.value);
+  setSliderText(fDec.right, v);
+  engine.setParam(PARAM_FILT_DECAY, v);
+});
+fSus.input.addEventListener("input", () => {
+  const v = Number(fSus.input.value);
+  setSliderText(fSus.right, v);
+  engine.setParam(PARAM_FILT_SUSTAIN, v);
+});
+fRel.input.addEventListener("input", () => {
+  const v = Number(fRel.input.value);
+  setSliderText(fRel.right, v);
+  engine.setParam(PARAM_FILT_RELEASE, v);
+});
+
 waveBtn.addEventListener("click", () => {
   waveform = waveform === 0 ? 1 : 0;
-  waveBtn.textContent = waveform === 0 ? "Wave: Saw" : "Wave: Square";
+  waveBtn.textContent = waveform === 0 ? "Osc1: Saw" : "Osc1: Square";
   engine.setParam(PARAM_WAVEFORM, waveform);
+});
+
+osc2WaveBtn.addEventListener("click", () => {
+  osc2Waveform = osc2Waveform === 0 ? 1 : 0;
+  osc2WaveBtn.textContent = osc2Waveform === 0 ? "Osc2: Saw" : "Osc2: Square";
+  engine.setParam(PARAM_OSC2_WAVEFORM, osc2Waveform);
 });
 
 const keyboard = new ThumbKeyboard(canvas, (ev: KeyEvent) => {
@@ -164,16 +307,6 @@ const keyboard = new ThumbKeyboard(canvas, (ev: KeyEvent) => {
 });
 
 let typing: TypingKeyboard | null = null;
-
-function setOctave(n: number) {
-  octaveShift = Math.max(-2, Math.min(2, n | 0));
-  octLabel.textContent = String(octaveShift);
-  keyboard.setOctaveShift(octaveShift);
-  typing?.syncBaseNote();
-}
-octDown.addEventListener("click", () => setOctave(octaveShift - 1));
-octUp.addEventListener("click", () => setOctave(octaveShift + 1));
-
 if (!isPhone) {
   typing = new TypingKeyboard({
     enabled: () => audioReady,
@@ -190,13 +323,14 @@ if (!isPhone) {
   });
 }
 
-
 const overlay = el("div", "overlay");
 const card = el("div", "card");
 const h2 = el("h2");
 h2.textContent = "Start Audio";
 const p = el("p");
-p.textContent = isPhone ? "Mobile browsers require a tap before audio can start. After starting, play the keyboard. Slide for gliss." : "Browsers require a click before audio can start. After starting, use the keys (A…K) or the on-screen keyboard.";
+p.textContent = isPhone
+  ? "Mobile browsers require a tap before audio can start. After starting, play the keyboard. Slide for gliss."
+  : "Browsers require a click before audio can start. After starting, use the keys (A…K) or the on-screen keyboard.";
 const start2 = el("button", "btn primary");
 start2.textContent = isPhone ? "Tap to Start" : "Click to Start";
 const err = el("div", "err");
@@ -212,15 +346,32 @@ async function startAudio() {
   try {
     await engine.start();
     audioReady = true;
+
     engine.setParam(PARAM_WAVEFORM, waveform);
+    engine.setParam(PARAM_OSC2_WAVEFORM, osc2Waveform);
+
     engine.setParam(PARAM_CUTOFF, Number(cutoff.input.value));
     engine.setParam(PARAM_RESONANCE, Number(resonance.input.value));
     engine.setParam(PARAM_FILTER_ENV_AMT, Number(envAmt.input.value));
+
+    engine.setParam(PARAM_VOLUME, Number(volume.input.value));
+
     engine.setParam(PARAM_ATTACK, Number(attack.input.value));
     engine.setParam(PARAM_DECAY, Number(decay.input.value));
     engine.setParam(PARAM_SUSTAIN, Number(sustain.input.value));
     engine.setParam(PARAM_RELEASE, Number(release.input.value));
-    engine.setParam(PARAM_VOLUME, Number(volume.input.value));
+
+    engine.setParam(PARAM_OSC_MIX, Number(oscMix.input.value));
+    engine.setParam(PARAM_DETUNE_CENTS, Number(detune.input.value));
+    engine.setParam(PARAM_OSC2_SEMITONES, Number(osc2Semi.input.value));
+    engine.setParam(PARAM_NOISE, Number(noise.input.value));
+    engine.setParam(PARAM_GLIDE, Number(glide.input.value));
+    engine.setParam(PARAM_KEYTRACK, Number(keytrack.input.value));
+
+    engine.setParam(PARAM_FILT_ATTACK, Number(fAtk.input.value));
+    engine.setParam(PARAM_FILT_DECAY, Number(fDec.input.value));
+    engine.setParam(PARAM_FILT_SUSTAIN, Number(fSus.input.value));
+    engine.setParam(PARAM_FILT_RELEASE, Number(fRel.input.value));
 
     // One-shot ping to confirm audio is alive.
     engine.noteOn(69, 0.85);
@@ -229,8 +380,7 @@ async function startAudio() {
     overlay.remove();
   } catch (e) {
     const msg = e instanceof Error ? (e.stack || e.message) : String(e);
-    err.textContent =
-      `Audio failed to start.\n${msg}\n\n` +
+    err.textContent = `Audio failed to start.\n${msg}\n\n` +
       "Tip: the Rust build step creates `web/public/wasm/synth.wasm`. Run `npm run dev` from `web/`.";
     audioReady = false;
     startBtn.disabled = false;
@@ -249,6 +399,16 @@ setSliderText(attack.right, Number(attack.input.value));
 setSliderText(decay.right, Number(decay.input.value));
 setSliderText(sustain.right, Number(sustain.input.value));
 setSliderText(release.right, Number(release.input.value));
+
+setSliderText(oscMix.right, Number(oscMix.input.value));
+setSliderText(detune.right, Number(detune.input.value));
+setSliderText(osc2Semi.right, Number(osc2Semi.input.value));
+setSliderText(noise.right, Number(noise.input.value));
+setSliderText(glide.right, Number(glide.input.value));
+setSliderText(keytrack.right, Number(keytrack.input.value));
+setSliderText(fAtk.right, Number(fAtk.input.value));
+setSliderText(fDec.right, Number(fDec.input.value));
+setSliderText(fSus.right, Number(fSus.input.value));
+setSliderText(fRel.right, Number(fRel.input.value));
+
 setOctave(0);
-
-
