@@ -50,6 +50,18 @@ export type ControlMsg =
 
 export type InitMsg = { type: "initWasm"; bytes: ArrayBuffer };
 
-export type InMsg = InitMsg | ControlMsg;
+export type ArpPattern = "up" | "down" | "updown" | "random" | "asPlayed";
+
+// steps: length 16; 0=REST, 1=GATE, 2=TIE
+export type ArpMsg = {
+  type: "arp";
+  enabled: boolean;
+  bpm: number;
+  octaves: number;
+  pattern: ArpPattern;
+  steps: number[];
+};
+
+export type InMsg = InitMsg | ControlMsg | ArpMsg;
 
 export type WorkletStatusMsg = { type: "ready" } | { type: "error"; message: string };

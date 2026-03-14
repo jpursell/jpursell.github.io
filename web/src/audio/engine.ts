@@ -1,6 +1,6 @@
-import type { ControlMsg, InitMsg, SynthParamId, WorkletStatusMsg } from "./protocol";
+import type { ArpMsg, ControlMsg, InitMsg, SynthParamId, WorkletStatusMsg } from "./protocol";
 
-type Msg = ControlMsg;
+type Msg = ControlMsg | ArpMsg;
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -68,11 +68,15 @@ export class AudioEngine {
     this.post({ type: "noteOff", note });
   }
 
-  private post(msg: Msg): void {
+
+  setArp(config: Omit<ArpMsg, "type">): void {
+    this.post({ type: "arp", ...config });
+  }  private post(msg: Msg): void {
     if (!this.node) return;
     this.node.port.postMessage(msg);
   }
 }
+
 
 
 

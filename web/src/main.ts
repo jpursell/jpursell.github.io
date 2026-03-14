@@ -101,6 +101,27 @@ function makeSlider(label: string, min: number, max: number, step: number, value
   return { wrap, input, right };
 }
 
+function makeSelect(label: string, options: { value: string; label: string }[], value: string) {
+  const wrap = el("div", "control");
+  const lab = el("label");
+  const left = el("span");
+  left.textContent = label;
+  const right = el("span");
+  right.textContent = value;
+  lab.append(left, right);
+  const select = document.createElement("select");
+  for (const o of options) {
+    const opt = document.createElement("option");
+    opt.value = o.value;
+    opt.textContent = o.label;
+    select.append(opt);
+  }
+  select.value = value;
+  wrap.append(lab, select);
+  return { wrap, select, right };
+}
+
+
 // Main controls (4 rows)
 const row1 = el("div", "row");
 const cutoff = makeSlider("Cutoff", 0, 1, 0.001, 0.45);
@@ -160,6 +181,92 @@ const fRel = makeSlider("F.Release (s)", 0.005, 3.0, 0.001, 0.15);
 row9.append(fSus.wrap, fRel.wrap);
 
 advanced.append(row5, row6, row7, row8, row9);
+
+// Arp (Advanced)
+let arpEnabled = false;
+let arpBpm = 120;
+let arpOctaves = 1;
+let arpPattern: "up" | "down" | "updown" | "random" | "asPlayed" = "up";
+const arpSteps: number[] = new Array(16).fill(1);
+
+function pushArp() {
+  engine.setArp({ enabled: arpEnabled, bpm: arpBpm, octaves: arpOctaves, pattern: arpPattern, steps: arpSteps.slice() });
+}
+
+const arpWrap = el("div", "arp");
+const arpBar = el("div", "btnbar");
+const arpBtn = el("button", "btn");
+arpBtn.textContent = "Arp: Off";
+arpBar.append(arpBtn);
+arpWrap.append(arpBar);
+
+const arpRow1 = el("div", "row");
+const arpTempo = makeSlider("Tempo (BPM)", 40, 240, 1, 120);
+const arpOct = makeSlider("Arp Oct", 1, 4, 1, 1);
+arpRow1.append(arpTempo.wrap, arpOct.wrap);
+arpWrap.append(arpRow1);
+
+const arpRow2 = el("div", "row");
+const arpPat = makeSelect("Pattern", [
+  { value: "up", label: "Up" },
+  { value: "down", label: "Down" },
+  { value: "updown", label: "UpDown" },
+  { value: "random", label: "Random" },
+  { value: "asPlayed", label: "As Played" }
+], "up");
+const arpLegend = el("div", "arpLegend");
+arpLegend.textContent = "Steps: Rest / Gate / Tie";
+arpRow2.append(arpPat.wrap, arpLegend);
+arpWrap.append(arpRow2);
+
+const arpGrid = el("div", "arpGrid");
+function renderArpStep(i: number, btn: HTMLButtonElement) {
+  const v = arpSteps[i] | 0;
+  btn.classList.remove("rest", "gate", "tie");
+  if (v === 0) { btn.classList.add("rest"); btn.textContent = "·"; }
+  else if (v === 2) { btn.classList.add("tie"); btn.textContent = "–"; }
+  else { btn.classList.add("gate"); btn.textContent = "●"; }
+}
+for (let i = 0; i < 16; i++) {
+  const b = el("button", "arpStep") as HTMLButtonElement;
+  b.type = "button";
+  renderArpStep(i, b);
+  b.addEventListener("click", () => {
+    arpSteps[i] = (arpSteps[i] + 1) % 3;
+    renderArpStep(i, b);
+    pushArp();
+  });
+  arpGrid.append(b);
+}
+arpWrap.append(arpGrid);
+
+arpBtn.addEventListener("click", () => {
+  arpEnabled = !arpEnabled;
+  arpBtn.textContent = arpEnabled ? "Arp: On" : "Arp: Off";
+  pushArp();
+});
+arpTempo.input.addEventListener("input", () => {
+  const v = Number(arpTempo.input.value);
+  setSliderText(arpTempo.right, v);
+  arpBpm = v;
+  pushArp();
+});
+arpOct.input.addEventListener("input", () => {
+  const v = Number(arpOct.input.value);
+  setSliderText(arpOct.right, v);
+  arpOctaves = v | 0;
+  pushArp();
+});
+arpPat.select.addEventListener("change", () => {
+  arpPattern = arpPat.select.value as any;
+  arpPat.right.textContent = arpPat.select.value;
+  pushArp();
+});
+
+setSliderText(arpTempo.right, Number(arpTempo.input.value));
+setSliderText(arpOct.right, Number(arpOct.input.value));
+
+advanced.append(arpWrap);
 controls.append(advanced);
 
 top.append(controls);
@@ -346,6 +453,7 @@ async function startAudio() {
   try {
     await engine.start();
     audioReady = true;
+    pushArp();
 
     engine.setParam(PARAM_WAVEFORM, waveform);
     engine.setParam(PARAM_OSC2_WAVEFORM, osc2Waveform);
