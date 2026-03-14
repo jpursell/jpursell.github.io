@@ -1,56 +1,47 @@
 // AudioWorkletProcessor entrypoint.
-// Kept as plain JS in /public so Vite and GitHub Pages can serve it without TS transpilation.
+// Generated from src/audio/worklet.ts; do not edit by hand.
 
-class SynthProcessor extends AudioWorkletProcessor {
+
+// src/audio/worklet.ts
+var SynthProcessor = class extends AudioWorkletProcessor {
+  exports = null;
+  ready = false;
   constructor(_options) {
     super();
-    this._exports = null;
-    this._ready = false;
-    this.port.onmessage = (ev) => void this._onMsg(ev.data);
+    this.port.onmessage = (ev) => void this.onMsg(ev.data);
   }
-
-  async _onMsg(msg) {
-    if (msg && msg.type === "initWasm") {
+  async onMsg(msg) {
+    if (msg.type === "initWasm") {
       try {
-        const bytes = msg.bytes;
-        const input = bytes instanceof ArrayBuffer ? bytes : bytes?.buffer;
-        if (!(input instanceof ArrayBuffer)) throw new Error("initWasm missing ArrayBuffer bytes");
-
-        const { instance } = await WebAssembly.instantiate(input, {});
-        const ex = instance.exports;
-        if (!ex || !ex.memory || !ex.render || !ex.init) throw new Error("Wasm exports missing required functions");
-
-        ex.init(sampleRate);
-        this._exports = ex;
-        this._ready = true;
+        const { instance } = await WebAssembly.instantiate(msg.bytes, {});
+        const ex2 = instance.exports;
+        if (!ex2?.memory || !ex2?.render || !ex2?.init) throw new Error("Wasm exports missing required functions");
+        ex2.init(sampleRate);
+        this.exports = ex2;
+        this.ready = true;
         this.port.postMessage({ type: "ready" });
       } catch (e) {
-        this._exports = null;
-        this._ready = false;
-        const message = e && e.stack ? String(e.stack) : String(e);
+        this.ready = false;
+        this.exports = null;
+        const message = e instanceof Error ? e.stack || e.message : String(e);
         this.port.postMessage({ type: "error", message });
       }
       return;
     }
-
-    const ex = this._exports;
-    if (!this._ready || !ex || !msg) return;
-
+    const ex = this.exports;
+    if (!this.ready || !ex) return;
     if (msg.type === "noteOn") ex.note_on(msg.note, msg.velocity);
     if (msg.type === "noteOff") ex.note_off(msg.note);
     if (msg.type === "param") ex.set_param(msg.id, msg.value);
   }
-
   process(_inputs, outputs) {
-    const out = outputs[0] && outputs[0][0];
+    const out = outputs[0]?.[0];
     if (!out) return true;
-
-    const ex = this._exports;
-    if (!this._ready || !ex) {
+    const ex = this.exports;
+    if (!this.ready || !ex) {
       out.fill(0);
       return true;
     }
-
     const frames = out.length;
     let offset = 0;
     while (offset < frames) {
@@ -64,9 +55,7 @@ class SynthProcessor extends AudioWorkletProcessor {
       out.set(block, offset);
       offset += n;
     }
-
     return true;
   }
-}
-
+};
 registerProcessor("synth-processor", SynthProcessor);

@@ -1,12 +1,6 @@
-export type SynthParamId = 0 | 1 | 2 | 3 | 4;
+import type { ControlMsg, InitMsg, SynthParamId, WorkletStatusMsg } from "./protocol";
 
-type Msg =
-  | { type: "noteOn"; note: number; velocity: number }
-  | { type: "noteOff"; note: number }
-  | { type: "param"; id: SynthParamId; value: number };
-
-type InitMsg = { type: "initWasm"; bytes: ArrayBuffer };
-type WorkletStatusMsg = { type: "ready" } | { type: "error"; message: string };
+type Msg = ControlMsg;
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -79,5 +73,7 @@ export class AudioEngine {
     this.node.port.postMessage(msg);
   }
 }
+
+
 
 

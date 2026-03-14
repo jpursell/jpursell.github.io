@@ -1,14 +1,5 @@
-type SynthParamId = 0 | 1 | 2 | 3 | 4;
+import type { InMsg, WorkletStatusMsg } from "./protocol";
 
-type InitMsg = { type: "initWasm"; bytes: ArrayBuffer };
-type ControlMsg =
-  | { type: "noteOn"; note: number; velocity: number }
-  | { type: "noteOff"; note: number }
-  | { type: "param"; id: SynthParamId; value: number };
-
-type InMsg = InitMsg | ControlMsg;
-
-type OutMsg = { type: "ready" } | { type: "error"; message: string };
 
 type WasmExports = {
   memory: WebAssembly.Memory;
@@ -37,12 +28,12 @@ class SynthProcessor extends AudioWorkletProcessor {
         ex.init(sampleRate);
         this.exports = ex;
         this.ready = true;
-        this.port.postMessage({ type: "ready" } as OutMsg);
+        this.port.postMessage({ type: "ready" } as WorkletStatusMsg);
       } catch (e) {
         this.ready = false;
         this.exports = null;
         const message = e instanceof Error ? (e.stack || e.message) : String(e);
-        this.port.postMessage({ type: "error", message } as OutMsg);
+        this.port.postMessage({ type: "error", message } as WorkletStatusMsg);
       }
       return;
     }
@@ -84,6 +75,7 @@ class SynthProcessor extends AudioWorkletProcessor {
 }
 
 registerProcessor("synth-processor", SynthProcessor);
+
 
 
 

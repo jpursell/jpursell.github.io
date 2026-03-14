@@ -1,11 +1,6 @@
 import { AudioEngine } from "./audio/engine";
+import { PARAM_ATTACK, PARAM_CUTOFF, PARAM_RELEASE, PARAM_VOLUME, PARAM_WAVEFORM } from "./audio/protocol";
 import { ThumbKeyboard, type KeyEvent } from "./ui/keyboard";
-
-const PARAM_WAVEFORM = 0 as const;
-const PARAM_CUTOFF = 1 as const;
-const PARAM_ATTACK = 2 as const;
-const PARAM_RELEASE = 3 as const;
-const PARAM_VOLUME = 4 as const;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);

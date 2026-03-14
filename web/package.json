@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/build-wasm.mjs --dev && node scripts/dev-server.mjs",
-    "dev:vite": "node scripts/build-wasm.mjs --dev && vite",
-    "build": "node scripts/build-wasm.mjs --release && vite build",
+    "dev": "node scripts/build-wasm.mjs --dev && node scripts/build-worklet.mjs && node scripts/dev-server.mjs",
+    "dev:vite": "node scripts/build-wasm.mjs --dev && node scripts/build-worklet.mjs && vite",
+    "build": "node scripts/build-wasm.mjs --release && node scripts/build-worklet.mjs && vite build",
     "preview": "vite preview",
     "test": "cd .. && cargo test -p synth_wasm"
   },
