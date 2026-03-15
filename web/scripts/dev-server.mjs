@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { execSync } from "node:child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,6 +12,13 @@ const srcRoot = path.join(webRoot, "src");
 const publicRoot = path.join(webRoot, "public");
 
 const port = Number(process.env.PORT || 5173);
+
+let commitLog = "unknown";
+try {
+  commitLog = execSync('git log -1 --format="%h - %s"', { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+} catch (e) {
+  console.warn("Could not get git commit log:", e);
+}
 
 function mimeType(p) {
   if (p.endsWith(".html")) return "text/html; charset=utf-8";
@@ -66,7 +74,9 @@ async function resolveFile(urlPath) {
 }
 
 async function serveTs(filePath) {
-  const source = await fs.readFile(filePath, "utf8");
+  let source = await fs.readFile(filePath, "utf8");
+  // Inject the global constant for the dev server
+  source = `const __COMMIT_LOG__ = ${JSON.stringify(commitLog)};\n` + source;
   const out = ts.transpileModule(source, {
     fileName: filePath,
     compilerOptions: {
