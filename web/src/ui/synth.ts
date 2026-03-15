@@ -359,15 +359,52 @@ export class SynthUi {
     };
 
     window.addEventListener("resize", updateAllPaths);
+    const topEl = document.querySelector('.top') as HTMLElement;
+    if (topEl) {
+      topEl.addEventListener("scroll", updateAllPaths);
+    }
+
+    let autoScrollRaf: number | null = null;
+    let lastClientX = 0;
+    let lastClientY = 0;
+
+    const autoScrollLoop = () => {
+      if (!activeSource || !topEl) return;
+
+      const rect = topEl.getBoundingClientRect();
+      const threshold = 50;
+      const maxSpeed = 15;
+      let dy = 0;
+
+      if (lastClientY > rect.bottom - threshold) {
+        dy = maxSpeed * (1 - Math.max(0, rect.bottom - lastClientY) / threshold);
+      } else if (lastClientY < rect.top + threshold) {
+        dy = -maxSpeed * (1 - Math.max(0, lastClientY - rect.top) / threshold);
+      }
+
+      if (dy !== 0) {
+        topEl.scrollBy({ top: dy });
+        const p1 = getCenter(activeSource);
+        drawCurve(this.patchPreview, p1.x, p1.y, lastClientX, lastClientY);
+      }
+      
+      autoScrollRaf = requestAnimationFrame(autoScrollLoop);
+    };
 
     const onPointerMove = (e: PointerEvent) => {
       if (!activeSource) return;
+      lastClientX = e.clientX;
+      lastClientY = e.clientY;
       const p1 = getCenter(activeSource);
       drawCurve(this.patchPreview, p1.x, p1.y, e.clientX, e.clientY);
     };
 
     const onPointerUp = (e: PointerEvent) => {
       if (!activeSource) return;
+      if (autoScrollRaf) {
+        cancelAnimationFrame(autoScrollRaf);
+        autoScrollRaf = null;
+      }
       this.patchPreview.style.display = "none";
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
@@ -415,11 +452,16 @@ export class SynthUi {
       j.addEventListener("pointerdown", (e) => {
         if (j.dataset.type === "output") {
           activeSource = j;
+          lastClientX = e.clientX;
+          lastClientY = e.clientY;
           this.patchPreview.style.display = "block";
           const p1 = getCenter(activeSource);
           drawCurve(this.patchPreview, p1.x, p1.y, e.clientX, e.clientY);
           window.addEventListener("pointermove", onPointerMove);
           window.addEventListener("pointerup", onPointerUp);
+          
+          if (autoScrollRaf) cancelAnimationFrame(autoScrollRaf);
+          autoScrollRaf = requestAnimationFrame(autoScrollLoop);
         } else if (j.dataset.type === "input") {
           // Disconnect if clicking input
           const destId = Number(j.dataset.id);
