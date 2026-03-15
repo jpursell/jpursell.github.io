@@ -48,7 +48,7 @@ export class AudioEngine {
   async start(): Promise<void> {
     if (this.started) return;
 
-    const ctx = new AudioContext({ latencyHint: "interactive" });
+    const ctx = new AudioContext({ latencyHint: "balanced" });
     const workletUrl = new URL("worklet.js", window.location.href);
 
     await ctx.audioWorklet.addModule(workletUrl.toString());
