@@ -183,6 +183,16 @@ var SynthProcessor = class extends AudioWorkletProcessor {
   reverb = new SchroederReverb();
   tmpSynth = new Float32Array(MAX_BLOCK);
   tmpDrums = new Float32Array(MAX_BLOCK);
+  stats = {
+    blocks: 0,
+    totalTime: 0,
+    wasmTime: 0,
+    jsTime: 0,
+    lastPost: 0
+  };
+  getNow() {
+    return typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
+  }
   constructor(_options) {
     super();
     this.port.onmessage = (ev) => void this.onMsg(ev.data);
@@ -515,6 +525,7 @@ var SynthProcessor = class extends AudioWorkletProcessor {
     }
   }
   process(_inputs, outputs) {
+    const t0 = this.getNow();
     const out = outputs[0]?.[0];
     if (!out) return true;
     const ex = this.exports;
@@ -524,6 +535,8 @@ var SynthProcessor = class extends AudioWorkletProcessor {
     }
     const frames = out.length;
     let offset = 0;
+    let wasmDur = 0;
+    let jsDur = 0;
     while (offset < frames) {
       if (this.transportEnabled()) {
         while (this.samplesUntilStep <= 0) {
@@ -536,13 +549,16 @@ var SynthProcessor = class extends AudioWorkletProcessor {
       if (this.transportEnabled()) {
         n = Math.min(n, Math.max(1, this.samplesUntilStep));
       }
+      const tWasmStart = this.getNow();
       const ptr = ex.render(n);
+      wasmDur += this.getNow() - tWasmStart;
       if (!ptr) {
         out.fill(0);
         return true;
       }
       const block = new Float32Array(ex.memory.buffer, ptr, n);
       this.tmpSynth.set(block, 0);
+      const tJsStart = this.getNow();
       this.tmpDrums.fill(0, 0, n);
       this.mixDrumsInto(this.tmpDrums, 0, n);
       const delaySamples = Math.round(sampleRate * (60 / Math.max(1, this.tempoBpm)) * this.fx.delay.beats);
@@ -573,6 +589,28 @@ var SynthProcessor = class extends AudioWorkletProcessor {
       if (this.transportEnabled()) {
         this.samplesUntilStep -= n;
       }
+      jsDur += this.getNow() - tJsStart;
+    }
+    const tEnd = this.getNow();
+    this.stats.totalTime += tEnd - t0;
+    this.stats.wasmTime += wasmDur;
+    this.stats.jsTime += jsDur;
+    this.stats.blocks += frames;
+    if (tEnd - this.stats.lastPost > 1e3) {
+      const budgetMs = this.stats.blocks / sampleRate * 1e3;
+      if (this.stats.blocks > 0 && budgetMs > 0) {
+        this.port.postMessage({
+          type: "stats",
+          loadPct: this.stats.totalTime / budgetMs,
+          wasmPct: this.stats.wasmTime / budgetMs,
+          jsPct: this.stats.jsTime / budgetMs
+        });
+      }
+      this.stats.blocks = 0;
+      this.stats.totalTime = 0;
+      this.stats.wasmTime = 0;
+      this.stats.jsTime = 0;
+      this.stats.lastPost = tEnd;
     }
     return true;
   }

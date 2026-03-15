@@ -96,4 +96,11 @@ export type FxMsg = {
 
 export type InMsg = InitMsg | ControlMsg | TempoMsg | ArpMsg | DrumSamplesMsg | DrumMsg | MixMsg | FxMsg;
 
-export type WorkletStatusMsg = { type: "ready" } | { type: "error"; message: string };
+export type WorkletStatsMsg = {
+  type: "stats";
+  loadPct: number;
+  wasmPct: number;
+  jsPct: number;
+};
+
+export type WorkletStatusMsg = { type: "ready" } | { type: "error"; message: string } | WorkletStatsMsg;

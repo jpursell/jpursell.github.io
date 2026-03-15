@@ -54,7 +54,18 @@ octLabel.textContent = "0";
 octaveWrap.append(octDown, octLabel, octUp);
 
 const synthUi = new SynthUi(engine);
-btnbar.append(startBtn, advBtn, octaveWrap);
+
+const perfWidget = el("div", "perf-widget");
+perfWidget.textContent = "Load: --%";
+engine.onStats = (loadPct, wasmPct, jsPct) => {
+  const load = Math.round(loadPct * 100);
+  const wasm = Math.round(wasmPct * 100);
+  const js = Math.round(jsPct * 100);
+  perfWidget.textContent = `Load: ${load}% (W:${wasm}% J:${js}%)`;
+  perfWidget.classList.toggle("danger", load > 80);
+};
+
+btnbar.append(startBtn, advBtn, octaveWrap, perfWidget);
 controls.append(btnbar);
 controls.append(synthUi.controlsWrap);
 

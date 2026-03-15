@@ -42,6 +42,8 @@ export class AudioEngine {
   private ctx: AudioContext | null = null;
   private node: AudioWorkletNode | null = null;
   private started = false;
+  
+  public onStats?: (loadPct: number, wasmPct: number, jsPct: number) => void;
 
   async start(): Promise<void> {
     if (this.started) return;
@@ -66,17 +68,23 @@ export class AudioEngine {
     const bytes = await resp.arrayBuffer();
 
     await new Promise<void>((resolve, reject) => {
+      let isResolved = false;
       const t = globalThis.setTimeout(() => reject(new Error("AudioWorklet init timed out")), 8000);
       node.port.onmessage = (ev) => {
         const msg = ev.data as WorkletStatusMsg;
         if (msg?.type === "ready") {
-          globalThis.clearTimeout(t);
-          resolve();
-          return;
-        }
-        if (msg?.type === "error") {
-          globalThis.clearTimeout(t);
-          reject(new Error(msg.message));
+          if (!isResolved) {
+            globalThis.clearTimeout(t);
+            isResolved = true;
+            resolve();
+          }
+        } else if (msg?.type === "error") {
+          if (!isResolved) {
+            globalThis.clearTimeout(t);
+            reject(new Error(msg.message));
+          }
+        } else if (msg?.type === "stats") {
+          this.onStats?.(msg.loadPct, msg.wasmPct, msg.jsPct);
         }
       };
 

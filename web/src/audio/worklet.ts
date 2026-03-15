@@ -273,6 +273,18 @@ class SynthProcessor extends AudioWorkletProcessor {
   private tmpSynth = new Float32Array(MAX_BLOCK);
   private tmpDrums = new Float32Array(MAX_BLOCK);
 
+  private stats = {
+    blocks: 0,
+    totalTime: 0,
+    wasmTime: 0,
+    jsTime: 0,
+    lastPost: 0
+  };
+
+  private getNow(): number {
+    return (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  }
+
   constructor(_options: AudioWorkletNodeOptions) {
     super();
     this.port.onmessage = (ev) => void this.onMsg(ev.data as InMsg);
@@ -687,6 +699,7 @@ class SynthProcessor extends AudioWorkletProcessor {
   }
 
   process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
+    const t0 = this.getNow();
     const out = outputs[0]?.[0];
     if (!out) return true;
 
@@ -698,6 +711,9 @@ class SynthProcessor extends AudioWorkletProcessor {
 
     const frames = out.length;
     let offset = 0;
+    
+    let wasmDur = 0;
+    let jsDur = 0;
 
     while (offset < frames) {
       if (this.transportEnabled()) {
@@ -714,7 +730,10 @@ class SynthProcessor extends AudioWorkletProcessor {
         n = Math.min(n, Math.max(1, this.samplesUntilStep));
       }
 
+      const tWasmStart = this.getNow();
       const ptr = ex.render(n);
+      wasmDur += this.getNow() - tWasmStart;
+      
       if (!ptr) {
         out.fill(0);
         return true;
@@ -723,6 +742,7 @@ class SynthProcessor extends AudioWorkletProcessor {
       const block = new Float32Array(ex.memory.buffer, ptr, n);
       this.tmpSynth.set(block, 0);
 
+      const tJsStart = this.getNow();
       this.tmpDrums.fill(0, 0, n);
       this.mixDrumsInto(this.tmpDrums, 0, n);
 
@@ -767,6 +787,30 @@ class SynthProcessor extends AudioWorkletProcessor {
       if (this.transportEnabled()) {
         this.samplesUntilStep -= n;
       }
+      jsDur += this.getNow() - tJsStart;
+    }
+
+    const tEnd = this.getNow();
+    this.stats.totalTime += (tEnd - t0);
+    this.stats.wasmTime += wasmDur;
+    this.stats.jsTime += jsDur;
+    this.stats.blocks += frames; // track total samples processed
+
+    if (tEnd - this.stats.lastPost > 1000) {
+      const budgetMs = (this.stats.blocks / sampleRate) * 1000;
+      if (this.stats.blocks > 0 && budgetMs > 0) {
+        this.port.postMessage({
+          type: "stats",
+          loadPct: this.stats.totalTime / budgetMs,
+          wasmPct: this.stats.wasmTime / budgetMs,
+          jsPct: this.stats.jsTime / budgetMs,
+        } as WorkletStatsMsg);
+      }
+      this.stats.blocks = 0;
+      this.stats.totalTime = 0;
+      this.stats.wasmTime = 0;
+      this.stats.jsTime = 0;
+      this.stats.lastPost = tEnd;
     }
 
     return true;
