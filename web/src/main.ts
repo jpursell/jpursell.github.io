@@ -32,7 +32,8 @@ hint.textContent = isPhone
   : "Click Start, then play: A W S E D F T G Y H U J K (Z/X octave).";
 
 const version = el("div", "version");
-version.textContent = `Build: ${__COMMIT_LOG__}`;
+const commitLog = (globalThis as any).__COMMIT_LOG__ || "unknown";
+version.textContent = `Build: ${commitLog}`;
 version.style.fontSize = "10px";
 version.style.color = "var(--muted)";
 version.style.marginTop = "4px";
