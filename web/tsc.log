@@ -1,0 +1,14 @@
+src/audio/worklet.ts(95,37): error TS2304: Cannot find name 'sampleRate'.
+src/audio/worklet.ts(184,19): error TS2304: Cannot find name 'sampleRate'.
+src/audio/worklet.ts(219,30): error TS2304: Cannot find name 'AudioWorkletProcessor'.
+src/audio/worklet.ts(276,10): error TS2339: Property 'port' does not exist on type 'SynthProcessor'.
+src/audio/worklet.ts(276,28): error TS7006: Parameter 'ev' implicitly has an 'any' type.
+src/audio/worklet.ts(284,43): error TS2304: Cannot find name 'sampleRate'.
+src/audio/worklet.ts(418,45): error TS2304: Cannot find name 'sampleRate'.
+src/audio/worklet.ts(533,36): error TS2304: Cannot find name 'sampleRate'.
+src/audio/worklet.ts(533,50): error TS2304: Cannot find name 'sampleRate'.
+src/audio/worklet.ts(612,17): error TS2304: Cannot find name 'sampleRate'.
+src/audio/worklet.ts(616,14): error TS2339: Property 'port' does not exist on type 'SynthProcessor'.
+src/audio/worklet.ts(621,14): error TS2339: Property 'port' does not exist on type 'SynthProcessor'.
+src/audio/worklet.ts(718,39): error TS2304: Cannot find name 'sampleRate'.
+src/audio/worklet.ts(764,1): error TS2304: Cannot find name 'registerProcessor'.

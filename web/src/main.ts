@@ -1,43 +1,19 @@
 import { AudioEngine } from "./audio/engine";
-import {
-  PARAM_ATTACK,
-  PARAM_CUTOFF,
-  PARAM_DECAY,
-  PARAM_DETUNE_CENTS,
-  PARAM_FILT_ATTACK,
-  PARAM_FILT_DECAY,
-  PARAM_FILT_RELEASE,
-  PARAM_FILT_SUSTAIN,
-  PARAM_FILTER_ENV_AMT,
-  PARAM_GLIDE,
-  PARAM_KEYTRACK,
-  PARAM_NOISE,
-  PARAM_OSC2_SEMITONES,
-  PARAM_OSC2_WAVEFORM,
-  PARAM_OSC_MIX,
-  PARAM_RELEASE,
-  PARAM_RESONANCE,
-  PARAM_SUSTAIN,
-  PARAM_VOLUME,
-  PARAM_WAVEFORM
-} from "./audio/protocol";
 import { ThumbKeyboard, type KeyEvent } from "./ui/keyboard";
 import { TypingKeyboard } from "./ui/typing_keyboard";
+
+import { el } from "./ui/controls";
+import { SynthUi } from "./ui/synth";
+import { TransportUi } from "./ui/transport";
+import { ArpUi } from "./ui/arp";
+import { DrumsUi } from "./ui/drums";
+import { MixerUi } from "./ui/mixer";
+import { FxUi } from "./ui/fx";
 
 function isProbablyPhone(): boolean {
   const ud = (navigator as any).userAgentData as undefined | { mobile?: boolean };
   if (ud && typeof ud.mobile === "boolean") return ud.mobile;
   return /iPhone|iPod|Android.*Mobile|Windows Phone/i.test(navigator.userAgent);
-}
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  return node;
-}
-
-function setSliderText(target: HTMLElement, v: number) {
-  target.textContent = v.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
 }
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -63,12 +39,10 @@ const btnbar = el("div", "btnbar");
 const startBtn = el("button", "btn primary");
 startBtn.textContent = "Start Audio";
 
-const waveBtn = el("button", "btn");
-waveBtn.textContent = "Osc1: Saw";
-
 const advBtn = el("button", "btn");
 advBtn.textContent = "Advanced";
 
+let octaveShift = 0;
 const octaveWrap = el("div", "octave");
 octaveWrap.textContent = "Octave:";
 const octDown = el("button", "btn");
@@ -79,547 +53,22 @@ const octLabel = el("span");
 octLabel.textContent = "0";
 octaveWrap.append(octDown, octLabel, octUp);
 
-btnbar.append(startBtn, waveBtn, advBtn, octaveWrap);
+const synthUi = new SynthUi(engine);
+btnbar.append(startBtn, synthUi.waveBtn, advBtn, octaveWrap);
 controls.append(btnbar);
+controls.append(synthUi.controlsWrap);
 
-type Slider = { wrap: HTMLDivElement; input: HTMLInputElement; right: HTMLSpanElement };
-function makeSlider(label: string, min: number, max: number, step: number, value: number): Slider {
-  const wrap = el("div", "control");
-  const lab = el("label");
-  const left = el("span");
-  left.textContent = label;
-  const right = el("span");
-  right.textContent = String(value);
-  lab.append(left, right);
-  const input = document.createElement("input");
-  input.type = "range";
-  input.min = String(min);
-  input.max = String(max);
-  input.step = String(step);
-  input.value = String(value);
-  wrap.append(lab, input);
-  return { wrap, input, right };
-}
-
-function makeSelect(label: string, options: { value: string; label: string }[], value: string) {
-  const wrap = el("div", "control");
-  const lab = el("label");
-  const left = el("span");
-  left.textContent = label;
-  const right = el("span");
-  right.textContent = value;
-  lab.append(left, right);
-  const select = document.createElement("select");
-  for (const o of options) {
-    const opt = document.createElement("option");
-    opt.value = o.value;
-    opt.textContent = o.label;
-    select.append(opt);
-  }
-  select.value = value;
-  wrap.append(lab, select);
-  return { wrap, select, right };
-}
-
-
-// Main controls (4 rows)
-const row1 = el("div", "row");
-const cutoff = makeSlider("Cutoff", 0, 1, 0.001, 0.45);
-const resonance = makeSlider("Resonance", 0, 1, 0.001, 0.2);
-row1.append(cutoff.wrap, resonance.wrap);
-
-const row2 = el("div", "row");
-const envAmt = makeSlider("Env Amt", 0, 1, 0.001, 0.5);
-const volume = makeSlider("Volume", 0, 1, 0.001, 0.55);
-row2.append(envAmt.wrap, volume.wrap);
-
-const row3 = el("div", "row");
-const attack = makeSlider("Attack (s)", 0.001, 2.0, 0.001, 0.01);
-const decay = makeSlider("Decay (s)", 0.005, 3.0, 0.001, 0.12);
-row3.append(attack.wrap, decay.wrap);
-
-const row4 = el("div", "row");
-const sustain = makeSlider("Sustain", 0, 1, 0.001, 0.6);
-const release = makeSlider("Release (s)", 0.005, 3.0, 0.001, 0.15);
-row4.append(sustain.wrap, release.wrap);
-
-controls.append(row1, row2, row3, row4);
-
-// Advanced controls (collapsed)
 const advanced = el("div", "advanced");
 advanced.hidden = true;
-
-const advBar = el("div", "btnbar");
-const osc2WaveBtn = el("button", "btn");
-osc2WaveBtn.textContent = "Osc2: Saw";
-advBar.append(osc2WaveBtn);
-advanced.append(advBar);
-
-const row5 = el("div", "row");
-const oscMix = makeSlider("Osc Mix", 0, 1, 0.001, 0.35);
-const detune = makeSlider("Detune (c)", -50, 50, 0.1, 0);
-row5.append(oscMix.wrap, detune.wrap);
-
-const row6 = el("div", "row");
-const osc2Semi = makeSlider("Osc2 Semi", -24, 24, 1, 0);
-const noise = makeSlider("Noise", 0, 1, 0.001, 0);
-row6.append(osc2Semi.wrap, noise.wrap);
-
-const row7 = el("div", "row");
-const glide = makeSlider("Glide (s)", 0, 0.75, 0.001, 0);
-const keytrack = makeSlider("Keytrack", 0, 1, 0.001, 0);
-row7.append(glide.wrap, keytrack.wrap);
-
-const row8 = el("div", "row");
-const fAtk = makeSlider("F.Attack (s)", 0.001, 2.0, 0.001, 0.005);
-const fDec = makeSlider("F.Decay (s)", 0.005, 3.0, 0.001, 0.12);
-row8.append(fAtk.wrap, fDec.wrap);
-
-const row9 = el("div", "row");
-const fSus = makeSlider("F.Sustain", 0, 1, 0.001, 0);
-const fRel = makeSlider("F.Release (s)", 0.005, 3.0, 0.001, 0.15);
-row9.append(fSus.wrap, fRel.wrap);
-
-advanced.append(row5, row6, row7, row8, row9);
-
-// Transport + Arp + Drums (Advanced)
-let tempoBpm = 120;
-
-function pushTempo() {
-  engine.setTempo(tempoBpm);
-}
-
-const transportWrap = el("div", "transport");
-const transportRow = el("div", "row one");
-const tempo = makeSlider("Tempo (BPM)", 40, 240, 1, 120);
-transportRow.append(tempo.wrap);
-transportWrap.append(transportRow);
-
-// Arp (Advanced)
-let arpEnabled = false;
-let arpOctaves = 1;
-let arpPattern: "up" | "down" | "updown" | "random" | "asPlayed" = "up";
-const arpSteps: number[] = new Array(16).fill(1);
-
-function pushArp() {
-  engine.setArp({ enabled: arpEnabled, octaves: arpOctaves, pattern: arpPattern, steps: arpSteps.slice() });
-}
-
-const arpWrap = el("div", "arp");
-const arpBar = el("div", "btnbar");
-const arpBtn = el("button", "btn");
-arpBtn.textContent = "Arp: Off";
-arpBar.append(arpBtn);
-arpWrap.append(arpBar);
-
-const arpRow1 = el("div", "row");
-const arpOct = makeSlider("Arp Oct", 1, 4, 1, 1);
-const arpPat = makeSelect(
-  "Pattern",
-  [
-    { value: "up", label: "Up" },
-    { value: "down", label: "Down" },
-    { value: "updown", label: "UpDown" },
-    { value: "random", label: "Random" },
-    { value: "asPlayed", label: "As Played" }
-  ],
-  "up"
-);
-arpRow1.append(arpOct.wrap, arpPat.wrap);
-arpWrap.append(arpRow1);
-
-const arpLegend = el("div", "arpLegend");
-arpLegend.textContent = "Steps: Off / On";
-arpWrap.append(arpLegend);
-
-const arpGrid = el("div", "stepGrid");
-function renderBinaryStep(v: number, btn: HTMLButtonElement) {
-  const on = (v | 0) === 1;
-  btn.classList.toggle("on", on);
-  btn.classList.toggle("off", !on);
-  btn.textContent = on ? "●" : "·";
-}
-for (let i = 0; i < 16; i++) {
-  const b = el("button", "stepBtn") as HTMLButtonElement;
-  b.type = "button";
-  renderBinaryStep(arpSteps[i], b);
-  b.addEventListener("click", () => {
-    arpSteps[i] = arpSteps[i] === 1 ? 0 : 1;
-    renderBinaryStep(arpSteps[i], b);
-    pushArp();
-  });
-  arpGrid.append(b);
-}
-arpWrap.append(arpGrid);
-
-arpBtn.addEventListener("click", () => {
-  arpEnabled = !arpEnabled;
-  arpBtn.textContent = arpEnabled ? "Arp: On" : "Arp: Off";
-  pushArp();
-});
-arpOct.input.addEventListener("input", () => {
-  const v = Number(arpOct.input.value);
-  arpOct.right.textContent = String(v | 0);
-  arpOctaves = v | 0;
-  pushArp();
-});
-arpPat.select.addEventListener("change", () => {
-  arpPattern = arpPat.select.value as any;
-  arpPat.right.textContent = arpPat.select.value;
-  pushArp();
-});
-
-// Drums (Advanced)
-type DrumId = "kick" | "snare" | "ch" | "oh";
-let drumsEnabled = false;
-let drumEdit: DrumId = "kick";
-const drumPatterns: Record<DrumId, number[]> = {
-  kick: new Array(16).fill(0),
-  snare: new Array(16).fill(0),
-  ch: new Array(16).fill(0),
-  oh: new Array(16).fill(0)
-};
-const drumParams: Record<DrumId, { level: number; tune: number; decay: number }> = {
-  kick: { level: 0.9, tune: 0, decay: 0.5 },
-  snare: { level: 0.75, tune: 0, decay: 0.5 },
-  ch: { level: 0.5, tune: 0, decay: 0.35 },
-  oh: { level: 0.5, tune: 0, decay: 0.6 }
-};
-
-function pushDrums() {
-  engine.setDrums({
-    enabled: drumsEnabled,
-    patterns: {
-      kick: drumPatterns.kick.slice(),
-      snare: drumPatterns.snare.slice(),
-      ch: drumPatterns.ch.slice(),
-      oh: drumPatterns.oh.slice()
-    },
-    params: {
-      kick: { ...drumParams.kick },
-      snare: { ...drumParams.snare },
-      ch: { ...drumParams.ch },
-      oh: { ...drumParams.oh }
-    }
-  });
-}
-
-const drumsWrap = el("div", "drums");
-const drumsBar = el("div", "btnbar");
-const drumsBtn = el("button", "btn");
-drumsBtn.textContent = "Drums: Off";
-drumsBar.append(drumsBtn);
-drumsWrap.append(drumsBar);
-
-const chanBar = el("div", "chanBar");
-function makeChanBtn(id: DrumId, label: string) {
-  const b = el("button", "btn chanBtn") as HTMLButtonElement;
-  b.type = "button";
-  b.textContent = label;
-  b.addEventListener("click", () => {
-    drumEdit = id;
-    syncDrumUi();
-  });
-  chanBar.append(b);
-  return b;
-}
-const chanKick = makeChanBtn("kick", "Kick");
-const chanSnare = makeChanBtn("snare", "Snare");
-const chanCh = makeChanBtn("ch", "CH");
-const chanOh = makeChanBtn("oh", "OH");
-drumsWrap.append(chanBar);
-
-const drumGrid = el("div", "stepGrid");
-const drumStepBtns: HTMLButtonElement[] = [];
-for (let i = 0; i < 16; i++) {
-  const b = el("button", "stepBtn") as HTMLButtonElement;
-  b.type = "button";
-  b.addEventListener("click", () => {
-    const steps = drumPatterns[drumEdit];
-    steps[i] = steps[i] === 1 ? 0 : 1;
-    renderBinaryStep(steps[i], b);
-    pushDrums();
-  });
-  drumStepBtns.push(b);
-  drumGrid.append(b);
-}
-drumsWrap.append(drumGrid);
-
-const drumRow1 = el("div", "row");
-const drumLevel = makeSlider("Level", 0, 1, 0.001, drumParams.kick.level);
-const drumTune = makeSlider("Tune (st)", -12, 12, 1, drumParams.kick.tune);
-drumTune.right.textContent = String(drumParams.kick.tune);
-drumRow1.append(drumLevel.wrap, drumTune.wrap);
-drumsWrap.append(drumRow1);
-
-const drumRow2 = el("div", "row one");
-const drumDecay = makeSlider("Decay", 0, 1, 0.001, drumParams.kick.decay);
-drumRow2.append(drumDecay.wrap);
-drumsWrap.append(drumRow2);
-
-function syncDrumUi() {
-  chanKick.classList.toggle("active", drumEdit === "kick");
-  chanSnare.classList.toggle("active", drumEdit === "snare");
-  chanCh.classList.toggle("active", drumEdit === "ch");
-  chanOh.classList.toggle("active", drumEdit === "oh");
-
-  const p = drumParams[drumEdit];
-  drumLevel.input.value = String(p.level);
-  setSliderText(drumLevel.right, p.level);
-
-  drumTune.input.value = String(p.tune);
-  drumTune.right.textContent = String(p.tune | 0);
-
-  drumDecay.input.value = String(p.decay);
-  setSliderText(drumDecay.right, p.decay);
-
-  const steps = drumPatterns[drumEdit];
-  for (let i = 0; i < 16; i++) renderBinaryStep(steps[i], drumStepBtns[i]);
-}
-
-// Wire transport/drum UI
-
-tempo.input.addEventListener("input", () => {
-  const v = Number(tempo.input.value);
-  setSliderText(tempo.right, v);
-  tempoBpm = v;
-  pushTempo();
-});
-
-setSliderText(tempo.right, Number(tempo.input.value));
-arpOct.right.textContent = String(Number(arpOct.input.value) | 0);
-
-// Drum handlers
-
-drumsBtn.addEventListener("click", () => {
-  drumsEnabled = !drumsEnabled;
-  drumsBtn.textContent = drumsEnabled ? "Drums: On" : "Drums: Off";
-  pushDrums();
-});
-
-drumLevel.input.addEventListener("input", () => {
-  const v = Number(drumLevel.input.value);
-  setSliderText(drumLevel.right, v);
-  drumParams[drumEdit].level = v;
-  pushDrums();
-});
-
-drumTune.input.addEventListener("input", () => {
-  const v = Number(drumTune.input.value) | 0;
-  drumTune.right.textContent = String(v);
-  drumParams[drumEdit].tune = v;
-  pushDrums();
-});
-
-drumDecay.input.addEventListener("input", () => {
-  const v = Number(drumDecay.input.value);
-  setSliderText(drumDecay.right, v);
-  drumParams[drumEdit].decay = v;
-  pushDrums();
-});
-
-syncDrumUi();
-
-
-// Mixer (Advanced)
-let mixMaster = 0.9;
-let mixSynth = 1.0;
-let mixDrums = 1.0;
-let sendSynth = 0.25;
-let sendDrums = 0.1;
-
-function pushMix() {
-  engine.setMix({ master: mixMaster, synth: mixSynth, drums: mixDrums, sendSynth, sendDrums });
-}
-
-const mixerWrap = el("div", "mixer");
-const mixRow1 = el("div", "row");
-const mixMasterSl = makeSlider("Master", 0, 1, 0.001, mixMaster);
-const mixSynthSl = makeSlider("Synth", 0, 1, 0.001, mixSynth);
-mixRow1.append(mixMasterSl.wrap, mixSynthSl.wrap);
-
-const mixRow2 = el("div", "row");
-const mixDrumsSl = makeSlider("Drums", 0, 1, 0.001, mixDrums);
-const sendSynthSl = makeSlider("FX Send (Synth)", 0, 1, 0.001, sendSynth);
-mixRow2.append(mixDrumsSl.wrap, sendSynthSl.wrap);
-
-const mixRow3 = el("div", "row one");
-const sendDrumsSl = makeSlider("FX Send (Drums)", 0, 1, 0.001, sendDrums);
-mixRow3.append(sendDrumsSl.wrap);
-
-mixerWrap.append(mixRow1, mixRow2, mixRow3);
-
-mixMasterSl.input.addEventListener("input", () => {
-  const v = Number(mixMasterSl.input.value);
-  setSliderText(mixMasterSl.right, v);
-  mixMaster = v;
-  pushMix();
-});
-
-mixSynthSl.input.addEventListener("input", () => {
-  const v = Number(mixSynthSl.input.value);
-  setSliderText(mixSynthSl.right, v);
-  mixSynth = v;
-  pushMix();
-});
-
-mixDrumsSl.input.addEventListener("input", () => {
-  const v = Number(mixDrumsSl.input.value);
-  setSliderText(mixDrumsSl.right, v);
-  mixDrums = v;
-  pushMix();
-});
-
-sendSynthSl.input.addEventListener("input", () => {
-  const v = Number(sendSynthSl.input.value);
-  setSliderText(sendSynthSl.right, v);
-  sendSynth = v;
-  pushMix();
-});
-
-sendDrumsSl.input.addEventListener("input", () => {
-  const v = Number(sendDrumsSl.input.value);
-  setSliderText(sendDrumsSl.right, v);
-  sendDrums = v;
-  pushMix();
-});
-
-setSliderText(mixMasterSl.right, Number(mixMasterSl.input.value));
-setSliderText(mixSynthSl.right, Number(mixSynthSl.input.value));
-setSliderText(mixDrumsSl.right, Number(mixDrumsSl.input.value));
-setSliderText(sendSynthSl.right, Number(sendSynthSl.input.value));
-setSliderText(sendDrumsSl.right, Number(sendDrumsSl.input.value));
-
-// FX (Advanced)
-let fxDrive = 0.2;
-let delayEnabled = true;
-let delayBeats = 0.5;
-let delayFeedback = 0.35;
-let delayReturn = 0.25;
-let reverbEnabled = true;
-let reverbDecay = 0.45;
-let reverbDamp = 0.4;
-let reverbReturn = 0.18;
-
-function pushFx() {
-  engine.setFx({
-    drive: fxDrive,
-    delay: { enabled: delayEnabled, beats: delayBeats, feedback: delayFeedback, return: delayReturn },
-    reverb: { enabled: reverbEnabled, decay: reverbDecay, damp: reverbDamp, return: reverbReturn }
-  });
-}
-
-const fxWrap = el("div", "fx");
-
-const fxDriveRow = el("div", "row one");
-const fxDriveSl = makeSlider("Drive", 0, 1, 0.001, fxDrive);
-fxDriveRow.append(fxDriveSl.wrap);
-fxWrap.append(fxDriveRow);
-
-const delayBar = el("div", "btnbar");
-const delayBtn = el("button", "btn");
-delayBtn.textContent = delayEnabled ? "Delay: On" : "Delay: Off";
-delayBar.append(delayBtn);
-fxWrap.append(delayBar);
-
-const delayRow1 = el("div", "row");
-const delayTimeSl = makeSlider("Time (beats)", 0.25, 2.0, 0.01, delayBeats);
-const delayFbSl = makeSlider("Feedback", 0, 0.95, 0.001, delayFeedback);
-delayRow1.append(delayTimeSl.wrap, delayFbSl.wrap);
-fxWrap.append(delayRow1);
-
-const delayRow2 = el("div", "row one");
-const delayRetSl = makeSlider("Return", 0, 1, 0.001, delayReturn);
-delayRow2.append(delayRetSl.wrap);
-fxWrap.append(delayRow2);
-
-const revBar = el("div", "btnbar");
-const revBtn = el("button", "btn");
-revBtn.textContent = reverbEnabled ? "Reverb: On" : "Reverb: Off";
-revBar.append(revBtn);
-fxWrap.append(revBar);
-
-const revRow1 = el("div", "row");
-const revDecaySl = makeSlider("Decay", 0, 1, 0.001, reverbDecay);
-const revDampSl = makeSlider("Damp", 0, 1, 0.001, reverbDamp);
-revRow1.append(revDecaySl.wrap, revDampSl.wrap);
-fxWrap.append(revRow1);
-
-const revRow2 = el("div", "row one");
-const revRetSl = makeSlider("Return", 0, 1, 0.001, reverbReturn);
-revRow2.append(revRetSl.wrap);
-fxWrap.append(revRow2);
-
-fxDriveSl.input.addEventListener("input", () => {
-  const v = Number(fxDriveSl.input.value);
-  setSliderText(fxDriveSl.right, v);
-  fxDrive = v;
-  pushFx();
-});
-
-delayBtn.addEventListener("click", () => {
-  delayEnabled = !delayEnabled;
-  delayBtn.textContent = delayEnabled ? "Delay: On" : "Delay: Off";
-  pushFx();
-});
-
-delayTimeSl.input.addEventListener("input", () => {
-  const v = Number(delayTimeSl.input.value);
-  setSliderText(delayTimeSl.right, v);
-  delayBeats = v;
-  pushFx();
-});
-
-delayFbSl.input.addEventListener("input", () => {
-  const v = Number(delayFbSl.input.value);
-  setSliderText(delayFbSl.right, v);
-  delayFeedback = v;
-  pushFx();
-});
-
-delayRetSl.input.addEventListener("input", () => {
-  const v = Number(delayRetSl.input.value);
-  setSliderText(delayRetSl.right, v);
-  delayReturn = v;
-  pushFx();
-});
-
-revBtn.addEventListener("click", () => {
-  reverbEnabled = !reverbEnabled;
-  revBtn.textContent = reverbEnabled ? "Reverb: On" : "Reverb: Off";
-  pushFx();
-});
-
-revDecaySl.input.addEventListener("input", () => {
-  const v = Number(revDecaySl.input.value);
-  setSliderText(revDecaySl.right, v);
-  reverbDecay = v;
-  pushFx();
-});
-
-revDampSl.input.addEventListener("input", () => {
-  const v = Number(revDampSl.input.value);
-  setSliderText(revDampSl.right, v);
-  reverbDamp = v;
-  pushFx();
-});
-
-revRetSl.input.addEventListener("input", () => {
-  const v = Number(revRetSl.input.value);
-  setSliderText(revRetSl.right, v);
-  reverbReturn = v;
-  pushFx();
-});
-
-setSliderText(fxDriveSl.right, Number(fxDriveSl.input.value));
-setSliderText(delayTimeSl.right, Number(delayTimeSl.input.value));
-setSliderText(delayFbSl.right, Number(delayFbSl.input.value));
-setSliderText(delayRetSl.right, Number(delayRetSl.input.value));
-setSliderText(revDecaySl.right, Number(revDecaySl.input.value));
-setSliderText(revDampSl.right, Number(revDampSl.input.value));
-setSliderText(revRetSl.right, Number(revRetSl.input.value));
-
-advanced.append(transportWrap, arpWrap, drumsWrap, mixerWrap, fxWrap);
+advanced.append(synthUi.advancedWrap);
+
+const transportUi = new TransportUi(engine);
+const arpUi = new ArpUi(engine);
+const drumsUi = new DrumsUi(engine);
+const mixerUi = new MixerUi(engine);
+const fxUi = new FxUi(engine);
+
+advanced.append(transportUi.wrap, arpUi.wrap, drumsUi.wrap, mixerUi.wrap, fxUi.wrap);
 controls.append(advanced);
 top.append(controls);
 
@@ -630,9 +79,6 @@ keyboardWrap.append(canvas);
 
 app.append(top, el("div"), keyboardWrap);
 
-let waveform: 0 | 1 = 0;
-let osc2Waveform: 0 | 1 = 0;
-let octaveShift = 0;
 let audioReady = false;
 
 function setOctave(n: number) {
@@ -648,110 +94,6 @@ octUp.addEventListener("click", () => setOctave(octaveShift + 1));
 advBtn.addEventListener("click", () => {
   const open = document.body.classList.toggle("advanced-open");
   advanced.hidden = !open;
-});
-
-cutoff.input.addEventListener("input", () => {
-  const v = Number(cutoff.input.value);
-  setSliderText(cutoff.right, v);
-  engine.setParam(PARAM_CUTOFF, v);
-});
-resonance.input.addEventListener("input", () => {
-  const v = Number(resonance.input.value);
-  setSliderText(resonance.right, v);
-  engine.setParam(PARAM_RESONANCE, v);
-});
-envAmt.input.addEventListener("input", () => {
-  const v = Number(envAmt.input.value);
-  setSliderText(envAmt.right, v);
-  engine.setParam(PARAM_FILTER_ENV_AMT, v);
-});
-volume.input.addEventListener("input", () => {
-  const v = Number(volume.input.value);
-  setSliderText(volume.right, v);
-  engine.setParam(PARAM_VOLUME, v);
-});
-attack.input.addEventListener("input", () => {
-  const v = Number(attack.input.value);
-  setSliderText(attack.right, v);
-  engine.setParam(PARAM_ATTACK, v);
-});
-decay.input.addEventListener("input", () => {
-  const v = Number(decay.input.value);
-  setSliderText(decay.right, v);
-  engine.setParam(PARAM_DECAY, v);
-});
-sustain.input.addEventListener("input", () => {
-  const v = Number(sustain.input.value);
-  setSliderText(sustain.right, v);
-  engine.setParam(PARAM_SUSTAIN, v);
-});
-release.input.addEventListener("input", () => {
-  const v = Number(release.input.value);
-  setSliderText(release.right, v);
-  engine.setParam(PARAM_RELEASE, v);
-});
-
-oscMix.input.addEventListener("input", () => {
-  const v = Number(oscMix.input.value);
-  setSliderText(oscMix.right, v);
-  engine.setParam(PARAM_OSC_MIX, v);
-});
-detune.input.addEventListener("input", () => {
-  const v = Number(detune.input.value);
-  setSliderText(detune.right, v);
-  engine.setParam(PARAM_DETUNE_CENTS, v);
-});
-osc2Semi.input.addEventListener("input", () => {
-  const v = Number(osc2Semi.input.value);
-  setSliderText(osc2Semi.right, v);
-  engine.setParam(PARAM_OSC2_SEMITONES, v);
-});
-noise.input.addEventListener("input", () => {
-  const v = Number(noise.input.value);
-  setSliderText(noise.right, v);
-  engine.setParam(PARAM_NOISE, v);
-});
-glide.input.addEventListener("input", () => {
-  const v = Number(glide.input.value);
-  setSliderText(glide.right, v);
-  engine.setParam(PARAM_GLIDE, v);
-});
-keytrack.input.addEventListener("input", () => {
-  const v = Number(keytrack.input.value);
-  setSliderText(keytrack.right, v);
-  engine.setParam(PARAM_KEYTRACK, v);
-});
-fAtk.input.addEventListener("input", () => {
-  const v = Number(fAtk.input.value);
-  setSliderText(fAtk.right, v);
-  engine.setParam(PARAM_FILT_ATTACK, v);
-});
-fDec.input.addEventListener("input", () => {
-  const v = Number(fDec.input.value);
-  setSliderText(fDec.right, v);
-  engine.setParam(PARAM_FILT_DECAY, v);
-});
-fSus.input.addEventListener("input", () => {
-  const v = Number(fSus.input.value);
-  setSliderText(fSus.right, v);
-  engine.setParam(PARAM_FILT_SUSTAIN, v);
-});
-fRel.input.addEventListener("input", () => {
-  const v = Number(fRel.input.value);
-  setSliderText(fRel.right, v);
-  engine.setParam(PARAM_FILT_RELEASE, v);
-});
-
-waveBtn.addEventListener("click", () => {
-  waveform = waveform === 0 ? 1 : 0;
-  waveBtn.textContent = waveform === 0 ? "Osc1: Saw" : "Osc1: Square";
-  engine.setParam(PARAM_WAVEFORM, waveform);
-});
-
-osc2WaveBtn.addEventListener("click", () => {
-  osc2Waveform = osc2Waveform === 0 ? 1 : 0;
-  osc2WaveBtn.textContent = osc2Waveform === 0 ? "Osc2: Saw" : "Osc2: Square";
-  engine.setParam(PARAM_OSC2_WAVEFORM, osc2Waveform);
 });
 
 const keyboard = new ThumbKeyboard(canvas, (ev: KeyEvent) => {
@@ -805,37 +147,13 @@ async function startAudio() {
   try {
     await engine.start();
     audioReady = true;
-    pushTempo();
-    pushArp();
-    pushDrums();
-    pushMix();
-    pushFx();
 
-    engine.setParam(PARAM_WAVEFORM, waveform);
-    engine.setParam(PARAM_OSC2_WAVEFORM, osc2Waveform);
-
-    engine.setParam(PARAM_CUTOFF, Number(cutoff.input.value));
-    engine.setParam(PARAM_RESONANCE, Number(resonance.input.value));
-    engine.setParam(PARAM_FILTER_ENV_AMT, Number(envAmt.input.value));
-
-    engine.setParam(PARAM_VOLUME, Number(volume.input.value));
-
-    engine.setParam(PARAM_ATTACK, Number(attack.input.value));
-    engine.setParam(PARAM_DECAY, Number(decay.input.value));
-    engine.setParam(PARAM_SUSTAIN, Number(sustain.input.value));
-    engine.setParam(PARAM_RELEASE, Number(release.input.value));
-
-    engine.setParam(PARAM_OSC_MIX, Number(oscMix.input.value));
-    engine.setParam(PARAM_DETUNE_CENTS, Number(detune.input.value));
-    engine.setParam(PARAM_OSC2_SEMITONES, Number(osc2Semi.input.value));
-    engine.setParam(PARAM_NOISE, Number(noise.input.value));
-    engine.setParam(PARAM_GLIDE, Number(glide.input.value));
-    engine.setParam(PARAM_KEYTRACK, Number(keytrack.input.value));
-
-    engine.setParam(PARAM_FILT_ATTACK, Number(fAtk.input.value));
-    engine.setParam(PARAM_FILT_DECAY, Number(fDec.input.value));
-    engine.setParam(PARAM_FILT_SUSTAIN, Number(fSus.input.value));
-    engine.setParam(PARAM_FILT_RELEASE, Number(fRel.input.value));
+    transportUi.pushTempo();
+    arpUi.pushArp();
+    drumsUi.pushDrums();
+    mixerUi.pushMix();
+    fxUi.pushFx();
+    synthUi.pushAll();
 
     // One-shot ping to confirm audio is alive.
     engine.noteOn(69, 0.85);
@@ -855,31 +173,5 @@ async function startAudio() {
 startBtn.addEventListener("click", () => void startAudio());
 start2.addEventListener("click", () => void startAudio());
 
-setSliderText(cutoff.right, Number(cutoff.input.value));
-setSliderText(resonance.right, Number(resonance.input.value));
-setSliderText(envAmt.right, Number(envAmt.input.value));
-setSliderText(volume.right, Number(volume.input.value));
-setSliderText(attack.right, Number(attack.input.value));
-setSliderText(decay.right, Number(decay.input.value));
-setSliderText(sustain.right, Number(sustain.input.value));
-setSliderText(release.right, Number(release.input.value));
-
-setSliderText(oscMix.right, Number(oscMix.input.value));
-setSliderText(detune.right, Number(detune.input.value));
-setSliderText(osc2Semi.right, Number(osc2Semi.input.value));
-setSliderText(noise.right, Number(noise.input.value));
-setSliderText(glide.right, Number(glide.input.value));
-setSliderText(keytrack.right, Number(keytrack.input.value));
-setSliderText(fAtk.right, Number(fAtk.input.value));
-setSliderText(fDec.right, Number(fDec.input.value));
-setSliderText(fSus.right, Number(fSus.input.value));
-setSliderText(fRel.right, Number(fRel.input.value));
-
+synthUi.initParams();
 setOctave(0);
-
-
-
-
-
-
-

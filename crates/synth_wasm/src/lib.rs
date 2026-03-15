@@ -2,7 +2,9 @@
 #![allow(static_mut_refs)]
 
 mod dsp;
+mod params;
 mod synth;
+mod voice;
 
 use synth::Synth;
 
@@ -44,7 +46,7 @@ pub unsafe extern "C" fn set_param(param_id: u32, value: f32) {
 /// The returned pointer stays valid until the next call to `render`.
 #[no_mangle]
 pub unsafe extern "C" fn render(frames: usize) -> *const f32 {
-    let frames = frames.min(MAX_FRAMES).max(1);
+    let frames = frames.clamp(1, MAX_FRAMES);
     let (Some(s), Some(buf)) = (SYNTH.as_mut(), OUT_BUF.as_mut()) else {
         return core::ptr::null();
     };

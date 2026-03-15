@@ -11,6 +11,7 @@
     "test": "cd .. && cargo test -p synth_wasm"
   },
   "devDependencies": {
+    "@types/audioworklet": "^0.0.96",
     "typescript": "^5.6.3",
     "vite": "^6.0.0"
   }
