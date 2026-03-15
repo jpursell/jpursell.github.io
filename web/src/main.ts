@@ -30,7 +30,18 @@ const hint = el("div", "hint");
 hint.textContent = isPhone
   ? "Tap Start, then play the keyboard with your thumbs."
   : "Click Start, then play: A W S E D F T G Y H U J K (Z/X octave).";
-title.append(h1, hint);
+
+const version = el("div", "version");
+version.textContent = `Build: ${__COMMIT_LOG__}`;
+version.style.fontSize = "10px";
+version.style.color = "var(--muted)";
+version.style.marginTop = "4px";
+version.style.textAlign = "right";
+
+const hintContainer = el("div");
+hintContainer.append(hint, version);
+
+title.append(h1, hintContainer);
 top.append(title);
 
 const controls = el("div", "main-controls");
