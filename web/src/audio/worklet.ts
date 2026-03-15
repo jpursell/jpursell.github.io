@@ -103,23 +103,32 @@ class TempoDelay {
     this.write = 0;
   }
 
-  process(x: number, enabled: boolean, delaySamples: number, feedback: number): number {
+  processBlock(input: Float32Array, output: Float32Array, n: number, enabled: boolean, delaySamples: number, feedback: number): void {
     if (!enabled) {
-      // write zeros so re-enabling doesn't resurrect old echoes
-      this.buf[this.write] = 0;
-      this.write = (this.write + 1) % this.buf.length;
-      return 0;
+      for (let i = 0; i < n; i++) {
+        this.buf[this.write] = 0;
+        this.write = (this.write + 1) % this.buf.length;
+        output[i] = 0;
+      }
+      return;
     }
 
     const len = this.buf.length;
     const ds = Math.max(1, Math.min(len - 1, delaySamples | 0));
-    const read = this.write - ds;
-    const readIdx = read < 0 ? read + len : read;
+    let read = this.write - ds;
+    if (read < 0) read += len;
 
-    const y = this.buf[readIdx];
-    this.buf[this.write] = x + y * feedback;
-    this.write = (this.write + 1) % len;
-    return y;
+    for (let i = 0; i < n; i++) {
+      const x = input[i];
+      const y = this.buf[read];
+      this.buf[this.write] = x + y * feedback;
+      output[i] = y;
+
+      this.write++;
+      if (this.write >= len) this.write = 0;
+      read++;
+      if (read >= len) read = 0;
+    }
   }
 }
 
@@ -138,18 +147,21 @@ class Comb {
     this.filterStore = 0;
   }
 
-  process(x: number, feedback: number, damp: number): number {
-    const y = this.buf[this.idx];
-
-    // 1-pole lowpass in feedback path
-    const d = damp;
-    this.filterStore = y * (1 - d) + this.filterStore * d;
-
-    this.buf[this.idx] = x + this.filterStore * feedback;
-    this.idx++;
-    if (this.idx >= this.buf.length) this.idx = 0;
-
-    return y;
+  processBlock(input: Float32Array, output: Float32Array, n: number, feedback: number, damp: number): void {
+    const len = this.buf.length;
+    let idx = this.idx;
+    let fs = this.filterStore;
+    for (let i = 0; i < n; i++) {
+      const x = input[i];
+      const y = this.buf[idx];
+      fs = y * (1 - damp) + fs * damp;
+      this.buf[idx] = x + fs * feedback;
+      output[i] += y;
+      idx++;
+      if (idx >= len) idx = 0;
+    }
+    this.idx = idx;
+    this.filterStore = fs;
   }
 }
 
@@ -168,13 +180,19 @@ class Allpass {
     this.idx = 0;
   }
 
-  process(x: number): number {
-    const y = this.buf[this.idx];
-    const out = -x + y;
-    this.buf[this.idx] = x + y * this.fb;
-    this.idx++;
-    if (this.idx >= this.buf.length) this.idx = 0;
-    return out;
+  processBlock(input: Float32Array, output: Float32Array, n: number): void {
+    const len = this.buf.length;
+    let idx = this.idx;
+    for (let i = 0; i < n; i++) {
+      const x = input[i];
+      const y = this.buf[idx];
+      const out = -x + y;
+      this.buf[idx] = x + y * this.fb;
+      output[i] = out;
+      idx++;
+      if (idx >= len) idx = 0;
+    }
+    this.idx = idx;
   }
 }
 
@@ -198,8 +216,11 @@ class SchroederReverb {
     for (const a of this.allpasses) a.clear();
   }
 
-  process(x: number, enabled: boolean, decay01: number, damp01: number): number {
-    if (!enabled) return 0;
+  processBlock(input: Float32Array, output: Float32Array, n: number, enabled: boolean, decay01: number, damp01: number): void {
+    if (!enabled) {
+      output.fill(0, 0, n);
+      return;
+    }
 
     const decay = clamp01(decay01);
     const damp = clamp01(damp01);
@@ -208,13 +229,19 @@ class SchroederReverb {
     const feedback = Math.min(0.98, 0.4 + decay * 0.55);
     const d = 0.05 + damp * 0.85;
 
-    let y = 0;
-    for (const c of this.combs) y += c.process(x, feedback, d);
-    y *= 0.25;
+    output.fill(0, 0, n);
 
-    for (const a of this.allpasses) y = a.process(y);
+    for (const c of this.combs) {
+      c.processBlock(input, output, n, feedback, d);
+    }
 
-    return y;
+    for (let i = 0; i < n; i++) {
+      output[i] *= 0.25;
+    }
+
+    for (const a of this.allpasses) {
+      a.processBlock(output, output, n);
+    }
   }
 }
 
@@ -272,18 +299,11 @@ class SynthProcessor extends AudioWorkletProcessor {
 
   private tmpSynth = new Float32Array(MAX_BLOCK);
   private tmpDrums = new Float32Array(MAX_BLOCK);
-
-  private stats = {
-    blocks: 0,
-    totalTime: 0,
-    wasmTime: 0,
-    jsTime: 0,
-    lastPost: 0
-  };
-
-  private getNow(): number {
-    return (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
-  }
+  private tmpSend = new Float32Array(MAX_BLOCK);
+  private tmpDelayOut = new Float32Array(MAX_BLOCK);
+  private tmpReverbOut = new Float32Array(MAX_BLOCK);
+  
+  private wasmMemView: Float32Array | null = null;
 
   constructor(_options: AudioWorkletNodeOptions) {
     super();
@@ -699,7 +719,6 @@ class SynthProcessor extends AudioWorkletProcessor {
   }
 
   process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
-    const t0 = this.getNow();
     const out = outputs[0]?.[0];
     if (!out) return true;
 
@@ -711,9 +730,10 @@ class SynthProcessor extends AudioWorkletProcessor {
 
     const frames = out.length;
     let offset = 0;
-    
-    let wasmDur = 0;
-    let jsDur = 0;
+
+    if (!this.wasmMemView || this.wasmMemView.buffer !== ex.memory.buffer) {
+      this.wasmMemView = new Float32Array(ex.memory.buffer);
+    }
 
     while (offset < frames) {
       if (this.transportEnabled()) {
@@ -730,19 +750,18 @@ class SynthProcessor extends AudioWorkletProcessor {
         n = Math.min(n, Math.max(1, this.samplesUntilStep));
       }
 
-      const tWasmStart = this.getNow();
       const ptr = ex.render(n);
-      wasmDur += this.getNow() - tWasmStart;
       
       if (!ptr) {
         out.fill(0);
         return true;
       }
 
-      const block = new Float32Array(ex.memory.buffer, ptr, n);
-      this.tmpSynth.set(block, 0);
+      const ptrF32 = ptr >> 2;
+      for (let i = 0; i < n; i++) {
+        this.tmpSynth[i] = this.wasmMemView[ptrF32 + i];
+      }
 
-      const tJsStart = this.getNow();
       this.tmpDrums.fill(0, 0, n);
       this.mixDrumsInto(this.tmpDrums, 0, n);
 
@@ -757,10 +776,6 @@ class SynthProcessor extends AudioWorkletProcessor {
       const pregain = 1 + drive * 12;
       const driveTrim = 1 / softclip(pregain);
 
-      const delayFb = fx.delay.feedback;
-      const delayRet = fx.delay.return;
-      const revRet = fx.reverb.return;
-
       for (let i = 0; i < n; i++) {
         let s = this.tmpSynth[i];
         if (drive > 0.0001) {
@@ -770,11 +785,20 @@ class SynthProcessor extends AudioWorkletProcessor {
 
         const d = this.tmpDrums[i] * m.drums;
 
-        const dry = s + d;
-        const sendIn = s * m.sendSynth + d * m.sendDrums;
+        this.tmpSynth[i] = s + d; // store dry back into tmpSynth
+        this.tmpSend[i] = s * m.sendSynth + d * m.sendDrums;
+      }
 
-        const delayOut = this.delay.process(sendIn, fx.delay.enabled, delaySamples, delayFb) * delayRet;
-        const reverbOut = this.reverb.process(sendIn, fx.reverb.enabled, fx.reverb.decay, fx.reverb.damp) * revRet;
+      this.delay.processBlock(this.tmpSend, this.tmpDelayOut, n, fx.delay.enabled, delaySamples, fx.delay.feedback);
+      this.reverb.processBlock(this.tmpSend, this.tmpReverbOut, n, fx.reverb.enabled, fx.reverb.decay, fx.reverb.damp);
+
+      const delayRet = fx.delay.return;
+      const revRet = fx.reverb.return;
+
+      for (let i = 0; i < n; i++) {
+        const dry = this.tmpSynth[i];
+        const delayOut = this.tmpDelayOut[i] * delayRet;
+        const reverbOut = this.tmpReverbOut[i] * revRet;
 
         let y = (dry + delayOut + reverbOut) * m.master;
         y = softclip(y);
@@ -787,30 +811,6 @@ class SynthProcessor extends AudioWorkletProcessor {
       if (this.transportEnabled()) {
         this.samplesUntilStep -= n;
       }
-      jsDur += this.getNow() - tJsStart;
-    }
-
-    const tEnd = this.getNow();
-    this.stats.totalTime += (tEnd - t0);
-    this.stats.wasmTime += wasmDur;
-    this.stats.jsTime += jsDur;
-    this.stats.blocks += frames; // track total samples processed
-
-    if (tEnd - this.stats.lastPost > 1000) {
-      const budgetMs = (this.stats.blocks / sampleRate) * 1000;
-      if (this.stats.blocks > 0 && budgetMs > 0) {
-        this.port.postMessage({
-          type: "stats",
-          loadPct: this.stats.totalTime / budgetMs,
-          wasmPct: this.stats.wasmTime / budgetMs,
-          jsPct: this.stats.jsTime / budgetMs,
-        } as WorkletStatsMsg);
-      }
-      this.stats.blocks = 0;
-      this.stats.totalTime = 0;
-      this.stats.wasmTime = 0;
-      this.stats.jsTime = 0;
-      this.stats.lastPost = tEnd;
     }
 
     return true;
