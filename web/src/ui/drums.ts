@@ -1,6 +1,6 @@
 import { AudioEngine } from "../audio/engine";
 import { type DrumId } from "../audio/protocol";
-import { el, makeSlider, setSliderText } from "./controls";
+import { el, makeKnob, setKnobText } from "./controls";
 
 function renderBinaryStep(v: number, btn: HTMLButtonElement) {
   const on = (v | 0) === 1;
@@ -28,9 +28,9 @@ export class DrumsUi {
   };
 
   private chanBtns: Record<DrumId, HTMLButtonElement> = {} as any;
-  private drumLevel: ReturnType<typeof makeSlider>;
-  private drumTune: ReturnType<typeof makeSlider>;
-  private drumDecay: ReturnType<typeof makeSlider>;
+  private drumLevel: ReturnType<typeof makeKnob>;
+  private drumTune: ReturnType<typeof makeKnob>;
+  private drumDecay: ReturnType<typeof makeKnob>;
   private drumStepBtns: HTMLButtonElement[] = [];
 
   constructor(private engine: AudioEngine) {
@@ -77,14 +77,14 @@ export class DrumsUi {
     this.wrap.append(drumGrid);
 
     const drumRow1 = el("div", "row");
-    this.drumLevel = makeSlider("Level", 0, 1, 0.001, this.drumParams.kick.level);
-    this.drumTune = makeSlider("Tune (st)", -12, 12, 1, this.drumParams.kick.tune);
+    this.drumLevel = makeKnob("Level", 0, 1, 0.001, this.drumParams.kick.level);
+    this.drumTune = makeKnob("Tune (st)", -12, 12, 1, this.drumParams.kick.tune);
     this.drumTune.right.textContent = String(this.drumParams.kick.tune);
     drumRow1.append(this.drumLevel.wrap, this.drumTune.wrap);
     this.wrap.append(drumRow1);
 
     const drumRow2 = el("div", "row one");
-    this.drumDecay = makeSlider("Decay", 0, 1, 0.001, this.drumParams.kick.decay);
+    this.drumDecay = makeKnob("Decay", 0, 1, 0.001, this.drumParams.kick.decay);
     drumRow2.append(this.drumDecay.wrap);
     this.wrap.append(drumRow2);
 
@@ -96,7 +96,7 @@ export class DrumsUi {
 
     this.drumLevel.input.addEventListener("input", () => {
       const v = Number(this.drumLevel.input.value);
-      setSliderText(this.drumLevel.right, v);
+      setKnobText(this.drumLevel.right, v);
       this.drumParams[this.drumEdit].level = v;
       this.pushDrums();
     });
@@ -110,7 +110,7 @@ export class DrumsUi {
 
     this.drumDecay.input.addEventListener("input", () => {
       const v = Number(this.drumDecay.input.value);
-      setSliderText(this.drumDecay.right, v);
+      setKnobText(this.drumDecay.right, v);
       this.drumParams[this.drumEdit].decay = v;
       this.pushDrums();
     });
@@ -126,13 +126,13 @@ export class DrumsUi {
 
     const p = this.drumParams[this.drumEdit];
     this.drumLevel.input.value = String(p.level);
-    setSliderText(this.drumLevel.right, p.level);
+    setKnobText(this.drumLevel.right, p.level);
 
     this.drumTune.input.value = String(p.tune);
     this.drumTune.right.textContent = String(p.tune | 0);
 
     this.drumDecay.input.value = String(p.decay);
-    setSliderText(this.drumDecay.right, p.decay);
+    setKnobText(this.drumDecay.right, p.decay);
 
     const steps = this.drumPatterns[this.drumEdit];
     for (let i = 0; i < 16; i++) renderBinaryStep(steps[i], this.drumStepBtns[i]);

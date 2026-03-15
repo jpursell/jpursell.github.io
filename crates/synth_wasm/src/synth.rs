@@ -1,6 +1,7 @@
-use crate::voice::Voice;
+use crate::voice::{Voice, ModSource, ModDest, ModRouting};
 use crate::params::*;
 use crate::dsp::osc::Waveform;
+use crate::dsp::lfo::LfoShape;
 
 #[derive(Debug)]
 pub struct Synth {
@@ -25,6 +26,39 @@ impl Synth {
 
     pub fn note_off(&mut self, note: u8) {
         self.voice.note_off(note);
+    }
+
+    pub fn add_mod_routing(&mut self, source: u32, dest: u32, amount: f32) {
+        if let (Ok(s), Ok(d)) = (ModSource::try_from(source), ModDest::try_from(dest)) {
+            // Check if routing already exists and update
+            for m in self.voice.mod_matrix.iter_mut() {
+                if let Some(route) = m {
+                    if route.source == s && route.dest == d {
+                        route.amount = amount;
+                        return;
+                    }
+                }
+            }
+            // Otherwise find empty slot
+            for m in self.voice.mod_matrix.iter_mut() {
+                if m.is_none() {
+                    *m = Some(ModRouting { source: s, dest: d, amount });
+                    break;
+                }
+            }
+        }
+    }
+
+    pub fn remove_mod_routing(&mut self, source: u32, dest: u32) {
+        if let (Ok(s), Ok(d)) = (ModSource::try_from(source), ModDest::try_from(dest)) {
+            for m in self.voice.mod_matrix.iter_mut() {
+                if let Some(route) = m {
+                    if route.source == s && route.dest == d {
+                        *m = None;
+                    }
+                }
+            }
+        }
     }
 
     pub fn set_param(&mut self, param_id: u32, value: f32) {
@@ -57,6 +91,27 @@ impl Synth {
                 ParamId::FiltDecay => self.voice.filt_env.decay_s = value.clamp(0.005, 3.0),
                 ParamId::FiltSustain => self.voice.filt_env.sustain = value.clamp(0.0, 1.0),
                 ParamId::FiltRelease => self.voice.filt_env.release_s = value.clamp(0.005, 3.0),
+                
+                ParamId::Lfo1Rate => self.voice.lfo1.set_rate(value),
+                ParamId::Lfo1Shape => {
+                    let s = match value.round() as u32 {
+                        1 => LfoShape::Square,
+                        2 => LfoShape::Saw,
+                        3 => LfoShape::SampleAndHold,
+                        _ => LfoShape::Triangle,
+                    };
+                    self.voice.lfo1.set_shape(s);
+                },
+                ParamId::Lfo2Rate => self.voice.lfo2.set_rate(value),
+                ParamId::Lfo2Shape => {
+                    let s = match value.round() as u32 {
+                        1 => LfoShape::Square,
+                        2 => LfoShape::Saw,
+                        3 => LfoShape::SampleAndHold,
+                        _ => LfoShape::Triangle,
+                    };
+                    self.voice.lfo2.set_shape(s);
+                }
             }
         }
     }

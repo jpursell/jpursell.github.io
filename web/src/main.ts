@@ -33,7 +33,7 @@ hint.textContent = isPhone
 title.append(h1, hint);
 top.append(title);
 
-const controls = el("div", "controls");
+const controls = el("div", "main-controls");
 const btnbar = el("div", "btnbar");
 
 const startBtn = el("button", "btn primary");
@@ -54,7 +54,7 @@ octLabel.textContent = "0";
 octaveWrap.append(octDown, octLabel, octUp);
 
 const synthUi = new SynthUi(engine);
-btnbar.append(startBtn, synthUi.waveBtn, advBtn, octaveWrap);
+btnbar.append(startBtn, advBtn, octaveWrap);
 controls.append(btnbar);
 controls.append(synthUi.controlsWrap);
 

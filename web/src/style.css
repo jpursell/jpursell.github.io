@@ -1,23 +1,27 @@
 :root {
   --kbd_h: clamp(160px, 38vh, 360px);
   --kbd_h_adv: clamp(140px, 28vh, 320px);
-  --bg0: #0a0f14;
-  --bg1: #101824;
-  --panel: rgba(255, 255, 255, 0.08);
-  --panel2: rgba(255, 255, 255, 0.12);
+  --bg0: #1c2024;
+  --bg1: #2a3036;
+  --panel: rgba(255, 255, 255, 0.05);
   --text: rgba(255, 255, 255, 0.92);
   --muted: rgba(255, 255, 255, 0.65);
   --accent: #f2c14e;
   --accent2: #6dd3ce;
   --danger: #ff6b6b;
+  
+  --mod-osc: #a84242;
+  --mod-filter: #7a8264;
+  --mod-env: #517a94;
+  --mod-lfo: #4d82b8;
+  --mod-mix: #5e8f66;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html,
-body {
+html, body {
   height: 100%;
 }
 
@@ -25,11 +29,10 @@ body {
   margin: 0;
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background:
-    radial-gradient(1200px 600px at 20% 10%, rgba(109, 211, 206, 0.15), transparent 60%),
-    radial-gradient(900px 500px at 85% 30%, rgba(242, 193, 78, 0.13), transparent 55%),
-    linear-gradient(180deg, var(--bg0), var(--bg1));
-  overflow: hidden;
+  background: var(--bg0);
+  /* Prevent scroll entirely to let the custom knobs work perfectly */
+  overflow: hidden; 
+  overscroll-behavior: none;
 }
 
 #app {
@@ -41,9 +44,10 @@ body {
 .top {
   max-height: calc(100dvh - var(--kbd_h) - 24px);
   overflow-y: auto;
-  padding: 14px 14px 10px 14px;
-  display: grid;
-  gap: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .title {
@@ -65,56 +69,134 @@ body {
   font-size: 12px;
 }
 
+.main-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Synthesizer layout */
 .controls {
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: var(--panel);
-  border-radius: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  background: var(--bg1);
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  position: relative; /* for SVG patch overlay */
+  min-height: 100px;
 }
 
-.row {
+/* Modules */
+.module {
+  background: #d4d7db;
+  border-radius: 4px;
+  color: #111;
+  display: flex;
+  flex-direction: column;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.1), 0 2px 5px rgba(0,0,0,0.2);
+  border: 1px solid #999;
+}
+
+.module-header {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: white;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+}
+
+.module.osc .module-header { background: var(--mod-osc); }
+.module.filter .module-header { background: var(--mod-filter); }
+.module.env .module-header { background: var(--mod-env); }
+.module.lfo .module-header { background: var(--mod-lfo); }
+.module.mix .module-header { background: var(--mod-mix); }
+
+.module-body {
+  padding: 10px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 12px;
+  align-items: start;
 }
 
-.control {
-  padding: 10px;
-  background: var(--panel2);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+/* The rows inside controlsWrap */
+.row {
+  display: contents; /* flat for grid */
 }
 
-.control label {
+/* Custom Knobs */
+.knob-control {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 12px;
-  color: var(--muted);
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
-.control input[type="range"] {
+.knob-control label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 10px;
+  color: #333;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.knob-control label span:last-child {
+  font-weight: 400;
+  color: #666;
+}
+
+.knob-wrap {
+  width: 44px;
+  height: 44px;
+  position: relative;
+  touch-action: none; /* crucial for preventing scroll */
+}
+
+.knob-svg {
   width: 100%;
-  margin-top: 8px;
+  height: 100%;
+  cursor: grab;
+  filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.3));
 }
 
-.control select {
-  width: 100%;
-  margin-top: 8px;
-  padding: 10px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.25);
-  color: var(--text);
+.knob-svg:active {
+  cursor: grabbing;
 }
 
+.knob-bg {
+  fill: #e0e2e5;
+  stroke: #888;
+  stroke-width: 1.5;
+}
+
+/* Red for osc, blue for env, etc? Let's do dark grey for standard knobs with a colored line */
+.module.osc .knob-bg { fill: #ab2c2c; }
+.module.filter .knob-bg { fill: #8b966a; }
+.module.env .knob-bg { fill: #1c5275; }
+
+.knob-indicator {
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.module.osc .knob-indicator { stroke: #fff; }
+
+/* Buttons */
 .btnbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 10px;
 }
 
 .btn {
@@ -122,12 +204,17 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.1);
   color: var(--text);
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 12px;
   text-transform: uppercase;
   cursor: pointer;
+}
+.module .btn {
+  background: #333;
+  border-color: #222;
+  color: #eee;
 }
 
 .btn:active {
@@ -143,63 +230,24 @@ body {
   display: flex;
   gap: 8px;
   align-items: center;
-  color: var(--muted);
   font-size: 12px;
 }
 
+/* Keyboard */
 .keyboardWrap {
-  padding: 10px 12px 14px 12px;
+  padding: 10px;
 }
 
 canvas#keyboard {
   width: 100%;
   height: var(--kbd_h);
-  border-radius: 16px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.2);
   touch-action: none;
 }
 
-.overlay {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(10, 15, 20, 0.65);
-  backdrop-filter: blur(10px);
-  z-index: 50;
-}
-
-.card {
-  width: min(520px, calc(100vw - 28px));
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(0, 0, 0, 0.35);
-}
-
-.card h2 {
-  margin: 0 0 6px 0;
-  font-size: 16px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.card p {
-  margin: 0 0 12px 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.err {
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--danger);
-  white-space: pre-wrap;
-}
-
-
+/* Advanced / Arp / Drums styling overrides */
 .advanced-open canvas#keyboard {
   height: var(--kbd_h_adv);
 }
@@ -208,39 +256,19 @@ canvas#keyboard {
   max-height: calc(100dvh - var(--kbd_h_adv) - 24px);
 }
 
-.advanced-open .keyboardWrap {
-  padding-top: 6px;
-  padding-bottom: 10px;
-}
-
-
-
-
-.arp {
+.arp, .transport, .drums, .mixer, .fx {
   display: grid;
   gap: 10px;
-}
-
-.row.one {
-  grid-template-columns: 1fr;
-}
-
-.transport {
-  display: grid;
-  gap: 10px;
-}
-
-.arpLegend {
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  font-size: 12px;
+  padding: 10px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  margin-top: 10px;
 }
 
 .stepGrid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 
 .stepBtn {
@@ -248,49 +276,118 @@ canvas#keyboard {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
   color: var(--text);
-  height: 34px;
-  border-radius: 10px;
+  height: 30px;
+  border-radius: 4px;
   cursor: pointer;
-  font-weight: 800;
-}
-
-.stepBtn.off {
-  opacity: 0.45;
 }
 
 .stepBtn.on {
-  background: rgba(242, 193, 78, 0.18);
-  border-color: rgba(242, 193, 78, 0.45);
+  background: rgba(242, 193, 78, 0.4);
 }
 
-.drums {
+.overlay {
+  position: fixed;
+  inset: 0;
   display: grid;
-  gap: 10px;
+  place-items: center;
+  background: rgba(10, 15, 20, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 50;
 }
 
-.chanBar {
+.card {
+  width: min(520px, calc(100vw - 28px));
+  padding: 20px;
+  border-radius: 8px;
+  background: #222;
+  text-align: center;
+}
+.card h2 { margin-top: 0; }
+
+.err {
+  color: var(--danger);
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+/* Patch Wires Overlay */
+#patch-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+  overflow: visible;
+}
+
+.patch-cable {
+  fill: none;
+  stroke: #ff4500;
+  stroke-width: 4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+}
+
+.patch-cable.preview {
+  stroke: #ffaa00;
+  opacity: 0.7;
+  stroke-dasharray: 8 4;
+}
+
+.knob-control.mini-knob {
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.mini-knob .knob-wrap {
+  width: 24px;
+  height: 24px;
+}
+
+.mini-knob .knob-bg {
+  fill: #444;
+  stroke: #222;
+}
+
+/* Jacks */
+.jack-wrap {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.jack-label {
+  font-size: 10px;
+  color: #333;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
-.chanBtn {
-  padding: 8px 10px;
+.jack {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #111;
+  border: 4px solid #888;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+  cursor: crosshair;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5), 0 1px 2px rgba(255,255,255,0.4);
+  touch-action: none;
 }
-
-.chanBtn.active {
-  background: rgba(109, 211, 206, 0.16);
-  border-color: rgba(109, 211, 206, 0.42);
+.jack::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #000;
 }
-
-
-.mixer {
-  display: grid;
-  gap: 10px;
-}
-
-.fx {
-  display: grid;
-  gap: 10px;
-}
-
+.jack.input:hover { border-color: #f2c14e; }
+.jack.output:hover { border-color: #6dd3ce; }

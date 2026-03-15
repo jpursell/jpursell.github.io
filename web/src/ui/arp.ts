@@ -1,6 +1,6 @@
 import { AudioEngine } from "../audio/engine";
 import { type ArpPattern } from "../audio/protocol";
-import { el, makeSelect, makeSlider } from "./controls";
+import { el, makeSelect, makeKnob } from "./controls";
 
 function renderBinaryStep(v: number, btn: HTMLButtonElement) {
   const on = (v | 0) === 1;
@@ -17,7 +17,7 @@ export class ArpUi {
   private arpPattern: ArpPattern = "up";
   private arpSteps: number[] = new Array(16).fill(1);
 
-  private arpOct: ReturnType<typeof makeSlider>;
+  private arpOct: ReturnType<typeof makeKnob>;
 
   constructor(private engine: AudioEngine) {
     this.wrap = el("div", "arp");
@@ -29,7 +29,7 @@ export class ArpUi {
     this.wrap.append(arpBar);
 
     const arpRow1 = el("div", "row");
-    this.arpOct = makeSlider("Arp Oct", 1, 4, 1, 1);
+    this.arpOct = makeKnob("Arp Oct", 1, 4, 1, 1);
     const arpPat = makeSelect(
       "Pattern",
       [

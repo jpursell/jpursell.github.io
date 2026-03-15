@@ -21,6 +21,10 @@ pub enum ParamId {
     FiltDecay = 17,
     FiltSustain = 18,
     FiltRelease = 19,
+    Lfo1Rate = 20,
+    Lfo1Shape = 21,
+    Lfo2Rate = 22,
+    Lfo2Shape = 23,
 }
 
 impl TryFrom<u32> for ParamId {
@@ -48,6 +52,10 @@ impl TryFrom<u32> for ParamId {
             17 => Ok(ParamId::FiltDecay),
             18 => Ok(ParamId::FiltSustain),
             19 => Ok(ParamId::FiltRelease),
+            20 => Ok(ParamId::Lfo1Rate),
+            21 => Ok(ParamId::Lfo1Shape),
+            22 => Ok(ParamId::Lfo2Rate),
+            23 => Ok(ParamId::Lfo2Shape),
             _ => Err(()),
         }
     }

@@ -1,5 +1,5 @@
 import { AudioEngine } from "../audio/engine";
-import { el, makeSlider, setSliderText } from "./controls";
+import { el, makeKnob, setKnobText } from "./controls";
 
 export class FxUi {
   public wrap: HTMLElement;
@@ -18,7 +18,7 @@ export class FxUi {
     this.wrap = el("div", "fx");
 
     const fxDriveRow = el("div", "row one");
-    const fxDriveSl = makeSlider("Drive", 0, 1, 0.001, this.fxDrive);
+    const fxDriveSl = makeKnob("Drive", 0, 1, 0.001, this.fxDrive);
     fxDriveRow.append(fxDriveSl.wrap);
     this.wrap.append(fxDriveRow);
 
@@ -29,13 +29,13 @@ export class FxUi {
     this.wrap.append(delayBar);
 
     const delayRow1 = el("div", "row");
-    const delayTimeSl = makeSlider("Time (beats)", 0.25, 2.0, 0.01, this.delayBeats);
-    const delayFbSl = makeSlider("Feedback", 0, 0.95, 0.001, this.delayFeedback);
+    const delayTimeSl = makeKnob("Time (beats)", 0.25, 2.0, 0.01, this.delayBeats);
+    const delayFbSl = makeKnob("Feedback", 0, 0.95, 0.001, this.delayFeedback);
     delayRow1.append(delayTimeSl.wrap, delayFbSl.wrap);
     this.wrap.append(delayRow1);
 
     const delayRow2 = el("div", "row one");
-    const delayRetSl = makeSlider("Return", 0, 1, 0.001, this.delayReturn);
+    const delayRetSl = makeKnob("Return", 0, 1, 0.001, this.delayReturn);
     delayRow2.append(delayRetSl.wrap);
     this.wrap.append(delayRow2);
 
@@ -46,19 +46,19 @@ export class FxUi {
     this.wrap.append(revBar);
 
     const revRow1 = el("div", "row");
-    const revDecaySl = makeSlider("Decay", 0, 1, 0.001, this.reverbDecay);
-    const revDampSl = makeSlider("Damp", 0, 1, 0.001, this.reverbDamp);
+    const revDecaySl = makeKnob("Decay", 0, 1, 0.001, this.reverbDecay);
+    const revDampSl = makeKnob("Damp", 0, 1, 0.001, this.reverbDamp);
     revRow1.append(revDecaySl.wrap, revDampSl.wrap);
     this.wrap.append(revRow1);
 
     const revRow2 = el("div", "row one");
-    const revRetSl = makeSlider("Return", 0, 1, 0.001, this.reverbReturn);
+    const revRetSl = makeKnob("Return", 0, 1, 0.001, this.reverbReturn);
     revRow2.append(revRetSl.wrap);
     this.wrap.append(revRow2);
 
     fxDriveSl.input.addEventListener("input", () => {
       const v = Number(fxDriveSl.input.value);
-      setSliderText(fxDriveSl.right, v);
+      setKnobText(fxDriveSl.right, v);
       this.fxDrive = v;
       this.pushFx();
     });
@@ -71,21 +71,21 @@ export class FxUi {
 
     delayTimeSl.input.addEventListener("input", () => {
       const v = Number(delayTimeSl.input.value);
-      setSliderText(delayTimeSl.right, v);
+      setKnobText(delayTimeSl.right, v);
       this.delayBeats = v;
       this.pushFx();
     });
 
     delayFbSl.input.addEventListener("input", () => {
       const v = Number(delayFbSl.input.value);
-      setSliderText(delayFbSl.right, v);
+      setKnobText(delayFbSl.right, v);
       this.delayFeedback = v;
       this.pushFx();
     });
 
     delayRetSl.input.addEventListener("input", () => {
       const v = Number(delayRetSl.input.value);
-      setSliderText(delayRetSl.right, v);
+      setKnobText(delayRetSl.right, v);
       this.delayReturn = v;
       this.pushFx();
     });
@@ -98,32 +98,32 @@ export class FxUi {
 
     revDecaySl.input.addEventListener("input", () => {
       const v = Number(revDecaySl.input.value);
-      setSliderText(revDecaySl.right, v);
+      setKnobText(revDecaySl.right, v);
       this.reverbDecay = v;
       this.pushFx();
     });
 
     revDampSl.input.addEventListener("input", () => {
       const v = Number(revDampSl.input.value);
-      setSliderText(revDampSl.right, v);
+      setKnobText(revDampSl.right, v);
       this.reverbDamp = v;
       this.pushFx();
     });
 
     revRetSl.input.addEventListener("input", () => {
       const v = Number(revRetSl.input.value);
-      setSliderText(revRetSl.right, v);
+      setKnobText(revRetSl.right, v);
       this.reverbReturn = v;
       this.pushFx();
     });
 
-    setSliderText(fxDriveSl.right, Number(fxDriveSl.input.value));
-    setSliderText(delayTimeSl.right, Number(delayTimeSl.input.value));
-    setSliderText(delayFbSl.right, Number(delayFbSl.input.value));
-    setSliderText(delayRetSl.right, Number(delayRetSl.input.value));
-    setSliderText(revDecaySl.right, Number(revDecaySl.input.value));
-    setSliderText(revDampSl.right, Number(revDampSl.input.value));
-    setSliderText(revRetSl.right, Number(revRetSl.input.value));
+    setKnobText(fxDriveSl.right, Number(fxDriveSl.input.value));
+    setKnobText(delayTimeSl.right, Number(delayTimeSl.input.value));
+    setKnobText(delayFbSl.right, Number(delayFbSl.input.value));
+    setKnobText(delayRetSl.right, Number(delayRetSl.input.value));
+    setKnobText(revDecaySl.right, Number(revDecaySl.input.value));
+    setKnobText(revDampSl.right, Number(revDampSl.input.value));
+    setKnobText(revRetSl.right, Number(revRetSl.input.value));
   }
 
   public pushFx() {

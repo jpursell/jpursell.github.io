@@ -19,6 +19,8 @@ type WasmExports = {
   note_on: (note: number, velocity: number) => void;
   note_off: (note: number) => void;
   set_param: (paramId: number, value: number) => void;
+  add_mod_routing: (source: number, dest: number, amount: number) => void;
+  remove_mod_routing: (source: number, dest: number) => void;
   render: (frames: number) => number;
 };
 
@@ -670,6 +672,16 @@ class SynthProcessor extends AudioWorkletProcessor {
 
     if (msg.type === "param") {
       ex.set_param(msg.id, msg.value);
+      return;
+    }
+
+    if (msg.type === "addMod") {
+      ex.add_mod_routing?.(msg.source, msg.dest, msg.amount);
+      return;
+    }
+
+    if (msg.type === "removeMod") {
+      ex.remove_mod_routing?.(msg.source, msg.dest);
       return;
     }
   }

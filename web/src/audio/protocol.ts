@@ -21,32 +21,32 @@ export const PARAM_FILT_DECAY = 17 as const;
 export const PARAM_FILT_SUSTAIN = 18 as const;
 export const PARAM_FILT_RELEASE = 19 as const;
 
+export const PARAM_LFO1_RATE = 20 as const;
+export const PARAM_LFO1_SHAPE = 21 as const;
+export const PARAM_LFO2_RATE = 22 as const;
+export const PARAM_LFO2_SHAPE = 23 as const;
+
 export type SynthParamId =
-  | 0
-  | 1
-  | 2
-  | 3
-  | 4
-  | 5
-  | 6
-  | 7
-  | 8
-  | 9
-  | 10
-  | 11
-  | 12
-  | 13
-  | 14
-  | 15
-  | 16
-  | 17
-  | 18
-  | 19;
+  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23;
+
+export enum ModSource {
+  Lfo1 = 0,
+  Lfo2 = 1,
+  FiltEnv = 2,
+}
+
+export enum ModDest {
+  Cutoff = 0,
+  Pitch = 1,
+  OscMix = 2,
+}
 
 export type ControlMsg =
   | { type: "noteOn"; note: number; velocity: number }
   | { type: "noteOff"; note: number }
-  | { type: "param"; id: SynthParamId; value: number };
+  | { type: "param"; id: SynthParamId; value: number }
+  | { type: "addMod"; source: ModSource; dest: ModDest; amount: number }
+  | { type: "removeMod"; source: ModSource; dest: ModDest };
 
 export type InitMsg = { type: "initWasm"; bytes: ArrayBuffer };
 

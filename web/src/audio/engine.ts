@@ -9,7 +9,9 @@ import type {
   MixMsg,
   SynthParamId,
   TempoMsg,
-  WorkletStatusMsg
+  WorkletStatusMsg,
+  ModSource,
+  ModDest
 } from "./protocol";
 
 type Msg = ControlMsg | TempoMsg | ArpMsg | DrumMsg | DrumSamplesMsg | MixMsg | FxMsg;
@@ -125,6 +127,14 @@ export class AudioEngine {
 
   setParam(id: SynthParamId, value: number): void {
     this.post({ type: "param", id, value });
+  }
+
+  addModulation(source: ModSource, dest: ModDest, amount: number): void {
+    this.post({ type: "addMod", source, dest, amount });
+  }
+
+  removeModulation(source: ModSource, dest: ModDest): void {
+    this.post({ type: "removeMod", source, dest });
   }
 
   noteOn(note: number, velocity: number): void {

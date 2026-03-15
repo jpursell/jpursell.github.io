@@ -505,6 +505,14 @@ var SynthProcessor = class extends AudioWorkletProcessor {
       ex.set_param(msg.id, msg.value);
       return;
     }
+    if (msg.type === "addMod") {
+      ex.add_mod_routing?.(msg.source, msg.dest, msg.amount);
+      return;
+    }
+    if (msg.type === "removeMod") {
+      ex.remove_mod_routing?.(msg.source, msg.dest);
+      return;
+    }
   }
   process(_inputs, outputs) {
     const out = outputs[0]?.[0];

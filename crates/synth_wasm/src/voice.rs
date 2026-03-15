@@ -1,4 +1,49 @@
-use crate::dsp::{env::Envelope, ladder::LadderLp, osc::Oscillator};
+use crate::dsp::{env::Envelope, ladder::LadderLp, osc::Oscillator, lfo::Lfo};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModSource {
+    Lfo1 = 0,
+    Lfo2 = 1,
+    FiltEnv = 2,
+}
+
+impl TryFrom<u32> for ModSource {
+    type Error = ();
+    fn try_from(v: u32) -> Result<Self, Self::Error> {
+        match v {
+            0 => Ok(ModSource::Lfo1),
+            1 => Ok(ModSource::Lfo2),
+            2 => Ok(ModSource::FiltEnv),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModDest {
+    Cutoff = 0,
+    Pitch = 1,
+    OscMix = 2,
+}
+
+impl TryFrom<u32> for ModDest {
+    type Error = ();
+    fn try_from(v: u32) -> Result<Self, Self::Error> {
+        match v {
+            0 => Ok(ModDest::Cutoff),
+            1 => Ok(ModDest::Pitch),
+            2 => Ok(ModDest::OscMix),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ModRouting {
+    pub source: ModSource,
+    pub dest: ModDest,
+    pub amount: f32,
+}
 
 #[derive(Debug)]
 pub struct Voice {
@@ -25,6 +70,10 @@ pub struct Voice {
     pub filter_env_amt_oct: f32,
 
     pub velocity: f32,
+
+    pub lfo1: Lfo,
+    pub lfo2: Lfo,
+    pub mod_matrix: [Option<ModRouting>; 8],
 }
 
 impl Voice {
@@ -56,6 +105,10 @@ impl Voice {
             filter_env_amt_oct: 2.0,
 
             velocity: 0.8,
+
+            lfo1: Lfo::new(),
+            lfo2: Lfo::new(),
+            mod_matrix: [None; 8],
         }
     }
 
@@ -88,13 +141,39 @@ impl Voice {
         let amp = self.amp_env.next_level(sr);
         let fe = self.filt_env.next_level(sr);
 
-        let osc1 = self.osc1.next_sample(self.current_freq, sr);
+        let lfo1_val = self.lfo1.process(sr);
+        let lfo2_val = self.lfo2.process(sr);
+
+        let mut mod_cutoff = 0.0;
+        let mut mod_pitch = 0.0;
+        let mut mod_oscmix = 0.0;
+
+        for m in &self.mod_matrix {
+            if let Some(route) = m {
+                let val = match route.source {
+                    ModSource::Lfo1 => lfo1_val,
+                    ModSource::Lfo2 => lfo2_val,
+                    ModSource::FiltEnv => fe,
+                };
+                let out = val * route.amount;
+                match route.dest {
+                    ModDest::Cutoff => mod_cutoff += out,
+                    ModDest::Pitch => mod_pitch += out,
+                    ModDest::OscMix => mod_oscmix += out,
+                }
+            }
+        }
+
+        let modded_freq = self.current_freq * (2.0_f32).powf(mod_pitch * 2.0); // +/- 2 octaves max range
+
+        let osc1 = self.osc1.next_sample(modded_freq, sr);
 
         let detune_semitones = self.osc2_semitones + (self.detune_cents / 100.0);
-        let osc2_freq = self.current_freq * (2.0_f32).powf(detune_semitones / 12.0);
+        let osc2_freq = modded_freq * (2.0_f32).powf(detune_semitones / 12.0);
         let osc2 = self.osc2.next_sample(osc2_freq, sr);
 
-        let mix = (1.0 - self.osc_mix) * osc1 + self.osc_mix * osc2;
+        let final_mix = (self.osc_mix + mod_oscmix).clamp(0.0, 1.0);
+        let mix = (1.0 - final_mix) * osc1 + final_mix * osc2;
         let noise = self.noise_level * 0.25 * self.next_noise();
 
         let x = (mix + noise) * amp * self.velocity * global_volume;
@@ -102,8 +181,13 @@ impl Voice {
         let key_oct = (self.note as f32 - 69.0) / 12.0;
         let key_factor = (2.0_f32).powf(self.keytrack * key_oct);
 
-        let cutoff = (self.cutoff_base_hz * key_factor * (2.0_f32).powf(self.filter_env_amt_oct * fe))
-            .min(sr * 0.45);
+        // Filter cutoff logic
+        let env_mod = self.filter_env_amt_oct * fe;
+        // The mod_cutoff is an octave offset (-4.0 to +4.0 maybe)
+        let total_mod = env_mod + (mod_cutoff * 4.0); 
+
+        let cutoff = (self.cutoff_base_hz * key_factor * (2.0_f32).powf(total_mod))
+            .clamp(20.0, sr * 0.45);
 
         self.filter.process(x, cutoff)
     }
