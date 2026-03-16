@@ -46,12 +46,12 @@ async function resolveFile(urlPath) {
   if (urlPath === "/") return path.join(webRoot, "index.html");
 
   if (urlPath.startsWith("/wasm/")) {
-    const p = path.join(publicRoot, urlPath);
+    const p = path.join(publicRoot, urlPath.slice(1));
     return within(publicRoot, p) ? p : null;
   }
 
   if (urlPath.startsWith("/src/")) {
-    let p = path.join(webRoot, urlPath);
+    let p = path.join(webRoot, urlPath.slice(1));
     if (!within(srcRoot, p)) return null;
 
     if (await fileExists(p)) return p;
@@ -67,7 +67,7 @@ async function resolveFile(urlPath) {
   }
 
   // Allow serving assets directly from /public
-  const publicCandidate = path.join(publicRoot, urlPath);
+  const publicCandidate = path.join(publicRoot, urlPath.slice(1));
   if (within(publicRoot, publicCandidate) && (await fileExists(publicCandidate))) return publicCandidate;
 
   return null;

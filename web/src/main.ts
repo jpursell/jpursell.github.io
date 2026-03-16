@@ -50,9 +50,6 @@ const btnbar = el("div", "btnbar");
 const startBtn = el("button", "btn primary");
 startBtn.textContent = "Start Audio";
 
-const advBtn = el("button", "btn");
-advBtn.textContent = "Advanced";
-
 let octaveShift = 0;
 const octaveWrap = el("div", "octave");
 octaveWrap.textContent = "Octave:";
@@ -76,12 +73,8 @@ engine.onStats = (loadPct, wasmPct, jsPct) => {
   perfWidget.classList.toggle("danger", load > 80);
 };
 
-btnbar.append(startBtn, advBtn, octaveWrap, perfWidget);
+btnbar.append(startBtn, octaveWrap, perfWidget);
 controls.append(btnbar);
-controls.append(synthUi.controlsWrap);
-
-const advanced = el("div", "advanced controls");
-advanced.hidden = true;
 
 const transportUi = new TransportUi(engine);
 const arpUi = new ArpUi(engine);
@@ -89,8 +82,14 @@ const drumsUi = new DrumsUi(engine);
 const mixerUi = new MixerUi(engine);
 const fxUi = new FxUi(engine);
 
-advanced.append(transportUi.wrap, arpUi.wrap, drumsUi.wrap, mixerUi.wrap, fxUi.wrap);
-controls.append(advanced);
+controls.append(
+  synthUi.controlsWrap,
+  transportUi.wrap,
+  arpUi.wrap,
+  drumsUi.wrap,
+  mixerUi.wrap,
+  fxUi.wrap
+);
 top.append(controls);
 
 const keyboardWrap = el("div", "keyboardWrap");
@@ -98,7 +97,7 @@ const canvas = document.createElement("canvas");
 canvas.id = "keyboard";
 keyboardWrap.append(canvas);
 
-app.append(top, el("div"), keyboardWrap);
+app.replaceChildren(top, el("div"), keyboardWrap);
 top.addEventListener("scroll", () => synthUi.updateAllPaths());
 
 let audioReady = false;
@@ -112,11 +111,6 @@ function setOctave(n: number) {
 
 octDown.addEventListener("click", () => setOctave(octaveShift - 1));
 octUp.addEventListener("click", () => setOctave(octaveShift + 1));
-
-advBtn.addEventListener("click", () => {
-  const open = document.body.classList.toggle("advanced-open");
-  advanced.hidden = !open;
-});
 
 const keyboard = new ThumbKeyboard(canvas, (ev: KeyEvent) => {
   if (ev.type === "down") {

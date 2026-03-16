@@ -11,6 +11,10 @@ import {
   PARAM_FILTER_ENV_AMT,
   PARAM_GLIDE,
   PARAM_KEYTRACK,
+  PARAM_LFO1_RATE,
+  PARAM_LFO1_SHAPE,
+  PARAM_LFO2_RATE,
+  PARAM_LFO2_SHAPE,
   PARAM_NOISE,
   PARAM_OSC2_SEMITONES,
   PARAM_OSC2_WAVEFORM,
@@ -23,7 +27,8 @@ import {
   ModSource,
   ModDest
 } from "../audio/protocol";
-import { el, makeKnob, setKnobText, makeModule, type Knob } from "./controls";
+import { el, makeKnob, makeModule, type Knob } from "./controls";
+import { ParamStore } from "./state";
 
 function makeJack(type: "input" | "output", label: string, dataId: number, hasAmount = false) {
   const wrap = el("div", "jack-wrap");
@@ -53,7 +58,6 @@ export class SynthUi {
   public cutoff!: Knob;
   public resonance!: Knob;
   public envAmt!: Knob;
-  public volume!: Knob;
   public attack!: Knob;
   public decay!: Knob;
   public sustain!: Knob;
@@ -77,6 +81,7 @@ export class SynthUi {
   public waveBtn: HTMLButtonElement;
   public osc2WaveBtn: HTMLButtonElement;
 
+  private store: ParamStore;
   private jacks: HTMLElement[] = [];
   private inputAmtKnobs: Map<number, Knob> = new Map();
   private patchSvg!: SVGSVGElement;
@@ -84,6 +89,7 @@ export class SynthUi {
   private activeConnections: { source: number, dest: number, path: SVGPathElement }[] = [];
 
   constructor(private engine: AudioEngine) {
+    this.store = new ParamStore(engine);
     this.controlsWrap = el("div", "controls");
 
     this.waveBtn = el("button", "btn");
@@ -176,127 +182,33 @@ export class SynthUi {
       jLfo1Out.wrap, jLfo2Out.wrap
     );
 
-    // OUTPUT MIX
-    const mMix = makeModule("Output", "mix");
-    this.volume = makeKnob("Master", 0, 1, 0.001, 0.55);
-    mMix.body.append(this.volume.wrap);
-
-    this.controlsWrap.append(mOsc.mod, mFilt.mod, mEnv.mod, mLfo.mod, mMix.mod);
+    this.controlsWrap.append(mOsc.mod, mFilt.mod, mEnv.mod, mLfo.mod);
   }
 
   private wireListeners() {
-    this.cutoff.input.addEventListener("input", () => {
-      const v = Number(this.cutoff.input.value);
-      setKnobText(this.cutoff.right, v);
-      this.engine.setParam(PARAM_CUTOFF, v);
-    });
-    this.resonance.input.addEventListener("input", () => {
-      const v = Number(this.resonance.input.value);
-      setKnobText(this.resonance.right, v);
-      this.engine.setParam(PARAM_RESONANCE, v);
-    });
-    this.envAmt.input.addEventListener("input", () => {
-      const v = Number(this.envAmt.input.value);
-      setKnobText(this.envAmt.right, v);
-      this.engine.setParam(PARAM_FILTER_ENV_AMT, v);
-    });
-    this.volume.input.addEventListener("input", () => {
-      const v = Number(this.volume.input.value);
-      setKnobText(this.volume.right, v);
-      this.engine.setParam(PARAM_VOLUME, v);
-    });
-    this.attack.input.addEventListener("input", () => {
-      const v = Number(this.attack.input.value);
-      setKnobText(this.attack.right, v);
-      this.engine.setParam(PARAM_ATTACK, v);
-    });
-    this.decay.input.addEventListener("input", () => {
-      const v = Number(this.decay.input.value);
-      setKnobText(this.decay.right, v);
-      this.engine.setParam(PARAM_DECAY, v);
-    });
-    this.sustain.input.addEventListener("input", () => {
-      const v = Number(this.sustain.input.value);
-      setKnobText(this.sustain.right, v);
-      this.engine.setParam(PARAM_SUSTAIN, v);
-    });
-    this.release.input.addEventListener("input", () => {
-      const v = Number(this.release.input.value);
-      setKnobText(this.release.right, v);
-      this.engine.setParam(PARAM_RELEASE, v);
-    });
+    this.store.bindKnob(this.cutoff, PARAM_CUTOFF);
+    this.store.bindKnob(this.resonance, PARAM_RESONANCE);
+    this.store.bindKnob(this.envAmt, PARAM_FILTER_ENV_AMT);
+    this.store.bindKnob(this.attack, PARAM_ATTACK);
+    this.store.bindKnob(this.decay, PARAM_DECAY);
+    this.store.bindKnob(this.sustain, PARAM_SUSTAIN);
+    this.store.bindKnob(this.release, PARAM_RELEASE);
 
-    this.oscMix.input.addEventListener("input", () => {
-      const v = Number(this.oscMix.input.value);
-      setKnobText(this.oscMix.right, v);
-      this.engine.setParam(PARAM_OSC_MIX, v);
-    });
-    this.detune.input.addEventListener("input", () => {
-      const v = Number(this.detune.input.value);
-      setKnobText(this.detune.right, v);
-      this.engine.setParam(PARAM_DETUNE_CENTS, v);
-    });
-    this.osc2Semi.input.addEventListener("input", () => {
-      const v = Number(this.osc2Semi.input.value);
-      setKnobText(this.osc2Semi.right, v);
-      this.engine.setParam(PARAM_OSC2_SEMITONES, v);
-    });
-    this.noise.input.addEventListener("input", () => {
-      const v = Number(this.noise.input.value);
-      setKnobText(this.noise.right, v);
-      this.engine.setParam(PARAM_NOISE, v);
-    });
-    this.glide.input.addEventListener("input", () => {
-      const v = Number(this.glide.input.value);
-      setKnobText(this.glide.right, v);
-      this.engine.setParam(PARAM_GLIDE, v);
-    });
-    this.keytrack.input.addEventListener("input", () => {
-      const v = Number(this.keytrack.input.value);
-      setKnobText(this.keytrack.right, v);
-      this.engine.setParam(PARAM_KEYTRACK, v);
-    });
-    this.fAtk.input.addEventListener("input", () => {
-      const v = Number(this.fAtk.input.value);
-      setKnobText(this.fAtk.right, v);
-      this.engine.setParam(PARAM_FILT_ATTACK, v);
-    });
-    this.fDec.input.addEventListener("input", () => {
-      const v = Number(this.fDec.input.value);
-      setKnobText(this.fDec.right, v);
-      this.engine.setParam(PARAM_FILT_DECAY, v);
-    });
-    this.fSus.input.addEventListener("input", () => {
-      const v = Number(this.fSus.input.value);
-      setKnobText(this.fSus.right, v);
-      this.engine.setParam(PARAM_FILT_SUSTAIN, v);
-    });
-    this.fRel.input.addEventListener("input", () => {
-      const v = Number(this.fRel.input.value);
-      setKnobText(this.fRel.right, v);
-      this.engine.setParam(PARAM_FILT_RELEASE, v);
-    });
+    this.store.bindKnob(this.oscMix, PARAM_OSC_MIX);
+    this.store.bindKnob(this.detune, PARAM_DETUNE_CENTS);
+    this.store.bindKnob(this.osc2Semi, PARAM_OSC2_SEMITONES);
+    this.store.bindKnob(this.noise, PARAM_NOISE);
+    this.store.bindKnob(this.glide, PARAM_GLIDE);
+    this.store.bindKnob(this.keytrack, PARAM_KEYTRACK);
+    this.store.bindKnob(this.fAtk, PARAM_FILT_ATTACK);
+    this.store.bindKnob(this.fDec, PARAM_FILT_DECAY);
+    this.store.bindKnob(this.fSus, PARAM_FILT_SUSTAIN);
+    this.store.bindKnob(this.fRel, PARAM_FILT_RELEASE);
 
-    this.lfo1Rate.input.addEventListener("input", () => {
-      const v = Number(this.lfo1Rate.input.value);
-      setKnobText(this.lfo1Rate.right, v);
-      this.engine.setParam(20, v); // PARAM_LFO1_RATE
-    });
-    this.lfo1Shape.input.addEventListener("input", () => {
-      const v = Number(this.lfo1Shape.input.value);
-      setKnobText(this.lfo1Shape.right, v);
-      this.engine.setParam(21, v); // PARAM_LFO1_SHAPE
-    });
-    this.lfo2Rate.input.addEventListener("input", () => {
-      const v = Number(this.lfo2Rate.input.value);
-      setKnobText(this.lfo2Rate.right, v);
-      this.engine.setParam(22, v); // PARAM_LFO2_RATE
-    });
-    this.lfo2Shape.input.addEventListener("input", () => {
-      const v = Number(this.lfo2Shape.input.value);
-      setKnobText(this.lfo2Shape.right, v);
-      this.engine.setParam(23, v); // PARAM_LFO2_SHAPE
-    });
+    this.store.bindKnob(this.lfo1Rate, PARAM_LFO1_RATE);
+    this.store.bindKnob(this.lfo1Shape, PARAM_LFO1_SHAPE);
+    this.store.bindKnob(this.lfo2Rate, PARAM_LFO2_RATE);
+    this.store.bindKnob(this.lfo2Shape, PARAM_LFO2_SHAPE);
 
     this.waveBtn.addEventListener("click", () => {
       this.waveform = this.waveform === 0 ? 1 : 0;
@@ -470,55 +382,12 @@ export class SynthUi {
   }
 
   public initParams() {
-    setKnobText(this.cutoff.right, Number(this.cutoff.input.value));
-    setKnobText(this.resonance.right, Number(this.resonance.input.value));
-    setKnobText(this.envAmt.right, Number(this.envAmt.input.value));
-    setKnobText(this.volume.right, Number(this.volume.input.value));
-    setKnobText(this.attack.right, Number(this.attack.input.value));
-    setKnobText(this.decay.right, Number(this.decay.input.value));
-    setKnobText(this.sustain.right, Number(this.sustain.input.value));
-    setKnobText(this.release.right, Number(this.release.input.value));
-
-    setKnobText(this.oscMix.right, Number(this.oscMix.input.value));
-    setKnobText(this.detune.right, Number(this.detune.input.value));
-    setKnobText(this.osc2Semi.right, Number(this.osc2Semi.input.value));
-    setKnobText(this.noise.right, Number(this.noise.input.value));
-    setKnobText(this.glide.right, Number(this.glide.input.value));
-    setKnobText(this.keytrack.right, Number(this.keytrack.input.value));
-    setKnobText(this.fAtk.right, Number(this.fAtk.input.value));
-    setKnobText(this.fDec.right, Number(this.fDec.input.value));
-    setKnobText(this.fSus.right, Number(this.fSus.input.value));
-    setKnobText(this.fRel.right, Number(this.fRel.input.value));
-    setKnobText(this.lfo1Rate.right, Number(this.lfo1Rate.input.value));
-    setKnobText(this.lfo1Shape.right, Number(this.lfo1Shape.input.value));
-    setKnobText(this.lfo2Rate.right, Number(this.lfo2Rate.input.value));
-    setKnobText(this.lfo2Shape.right, Number(this.lfo2Shape.input.value));
+    this.store.initAll();
   }
 
   public pushAll() {
     this.engine.setParam(PARAM_WAVEFORM, this.waveform);
     this.engine.setParam(PARAM_OSC2_WAVEFORM, this.osc2Waveform);
-    this.engine.setParam(PARAM_CUTOFF, Number(this.cutoff.input.value));
-    this.engine.setParam(PARAM_RESONANCE, Number(this.resonance.input.value));
-    this.engine.setParam(PARAM_FILTER_ENV_AMT, Number(this.envAmt.input.value));
-    this.engine.setParam(PARAM_VOLUME, Number(this.volume.input.value));
-    this.engine.setParam(PARAM_ATTACK, Number(this.attack.input.value));
-    this.engine.setParam(PARAM_DECAY, Number(this.decay.input.value));
-    this.engine.setParam(PARAM_SUSTAIN, Number(this.sustain.input.value));
-    this.engine.setParam(PARAM_RELEASE, Number(this.release.input.value));
-    this.engine.setParam(PARAM_OSC_MIX, Number(this.oscMix.input.value));
-    this.engine.setParam(PARAM_DETUNE_CENTS, Number(this.detune.input.value));
-    this.engine.setParam(PARAM_OSC2_SEMITONES, Number(this.osc2Semi.input.value));
-    this.engine.setParam(PARAM_NOISE, Number(this.noise.input.value));
-    this.engine.setParam(PARAM_GLIDE, Number(this.glide.input.value));
-    this.engine.setParam(PARAM_KEYTRACK, Number(this.keytrack.input.value));
-    this.engine.setParam(PARAM_FILT_ATTACK, Number(this.fAtk.input.value));
-    this.engine.setParam(PARAM_FILT_DECAY, Number(this.fDec.input.value));
-    this.engine.setParam(PARAM_FILT_SUSTAIN, Number(this.fSus.input.value));
-    this.engine.setParam(PARAM_FILT_RELEASE, Number(this.fRel.input.value));
-    this.engine.setParam(20, Number(this.lfo1Rate.input.value)); // PARAM_LFO1_RATE
-    this.engine.setParam(21, Number(this.lfo1Shape.input.value)); // PARAM_LFO1_SHAPE
-    this.engine.setParam(22, Number(this.lfo2Rate.input.value)); // PARAM_LFO2_RATE
-    this.engine.setParam(23, Number(this.lfo2Shape.input.value)); // PARAM_LFO2_SHAPE
+    this.store.pushAll();
   }
 }

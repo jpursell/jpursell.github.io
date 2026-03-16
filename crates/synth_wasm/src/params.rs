@@ -1,3 +1,6 @@
+// AUTO-GENERATED FILE. DO NOT EDIT.
+// Run `node scripts/generate-params.mjs` to update.
+
 #[repr(u32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ParamId {

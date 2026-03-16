@@ -42,7 +42,7 @@ body {
 }
 
 .top {
-  max-height: calc(100dvh - var(--kbd_h) - 24px);
+  max-height: calc(100dvh - var(--kbd_h_adv) - 24px);
   overflow-y: auto;
   padding: 14px;
   display: flex;
@@ -257,20 +257,11 @@ body {
 
 canvas#keyboard {
   width: 100%;
-  height: var(--kbd_h);
+  height: var(--kbd_h_adv);
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.2);
   touch-action: none;
-}
-
-/* Advanced / Arp / Drums styling overrides */
-.advanced-open canvas#keyboard {
-  height: var(--kbd_h_adv);
-}
-
-.advanced-open .top {
-  max-height: calc(100dvh - var(--kbd_h_adv) - 24px);
 }
 
 .stepGrid {
