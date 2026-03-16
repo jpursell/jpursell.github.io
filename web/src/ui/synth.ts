@@ -23,7 +23,7 @@ import {
   ModSource,
   ModDest
 } from "../audio/protocol";
-import { el, makeKnob, setKnobText, type Knob } from "./controls";
+import { el, makeKnob, setKnobText, makeModule, type Knob } from "./controls";
 
 function makeJack(type: "input" | "output", label: string, dataId: number, hasAmount = false) {
   const wrap = el("div", "jack-wrap");
@@ -43,18 +43,9 @@ function makeJack(type: "input" | "output", label: string, dataId: number, hasAm
   return { wrap, jack: j, amtKnob };
 }
 
-function makeModule(title: string, className: string) {
-  const mod = el("div", `module ${className}`);
-  const header = el("div", "module-header");
-  header.textContent = title;
-  const body = el("div", "module-body");
-  mod.append(header, body);
-  return { mod, body };
-}
-
 export class SynthUi {
+  public updateAllPaths!: () => void;
   public controlsWrap: HTMLElement;
-  public advancedWrap: HTMLElement;
   
   public waveform: 0 | 1 = 0;
   public osc2Waveform: 0 | 1 = 0;
@@ -94,7 +85,6 @@ export class SynthUi {
 
   constructor(private engine: AudioEngine) {
     this.controlsWrap = el("div", "controls");
-    this.advancedWrap = el("div", "controls"); // we can put everything in one big grid now
 
     this.waveBtn = el("button", "btn");
     this.waveBtn.textContent = "Osc1: Saw";
@@ -346,7 +336,7 @@ export class SynthUi {
       return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
     };
 
-    const updateAllPaths = () => {
+    this.updateAllPaths = () => {
       for (const conn of this.activeConnections) {
         const srcJack = this.jacks.find(j => j.dataset.type === "output" && Number(j.dataset.id) === conn.source);
         const dstJack = this.jacks.find(j => j.dataset.type === "input" && Number(j.dataset.id) === conn.dest);
@@ -358,17 +348,14 @@ export class SynthUi {
       }
     };
 
-    window.addEventListener("resize", updateAllPaths);
-    const topEl = document.querySelector('.top') as HTMLElement;
-    if (topEl) {
-      topEl.addEventListener("scroll", updateAllPaths);
-    }
+    window.addEventListener("resize", this.updateAllPaths);
 
     let autoScrollRaf: number | null = null;
     let lastClientX = 0;
     let lastClientY = 0;
 
     const autoScrollLoop = () => {
+      const topEl = document.querySelector('.top') as HTMLElement;
       if (!activeSource || !topEl) return;
 
       const rect = topEl.getBoundingClientRect();
@@ -428,7 +415,7 @@ export class SynthUi {
         this.patchSvg.append(path);
 
         this.activeConnections.push({ source: sourceId, dest: destId, path });
-        updateAllPaths();
+        this.updateAllPaths();
 
         const amt = Number(this.inputAmtKnobs.get(destId)?.input.value ?? 1.0);
         this.engine.addModulation(sourceId as ModSource, destId as ModDest, amt);
@@ -479,7 +466,7 @@ export class SynthUi {
     }
     
     // Update initially to clear positions just in case
-    setTimeout(updateAllPaths, 100);
+    setTimeout(this.updateAllPaths, 100);
   }
 
   public initParams() {

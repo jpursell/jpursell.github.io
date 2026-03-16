@@ -1,5 +1,5 @@
 import { AudioEngine } from "../audio/engine";
-import { el, makeKnob, setKnobText } from "./controls";
+import { el, makeKnob, setKnobText, makeModule } from "./controls";
 
 export class FxUi {
   public wrap: HTMLElement;
@@ -15,46 +15,38 @@ export class FxUi {
   private reverbReturn = 0.18;
 
   constructor(private engine: AudioEngine) {
-    this.wrap = el("div", "fx");
+    const { mod, body } = makeModule("Effects", "fx");
+    this.wrap = mod;
 
-    const fxDriveRow = el("div", "row one");
     const fxDriveSl = makeKnob("Drive", 0, 1, 0.001, this.fxDrive);
-    fxDriveRow.append(fxDriveSl.wrap);
-    this.wrap.append(fxDriveRow);
 
     const delayBar = el("div", "btnbar");
+    delayBar.style.gridColumn = "1 / -1";
     const delayBtn = el("button", "btn");
     delayBtn.textContent = this.delayEnabled ? "Delay: On" : "Delay: Off";
     delayBar.append(delayBtn);
-    this.wrap.append(delayBar);
 
-    const delayRow1 = el("div", "row");
     const delayTimeSl = makeKnob("Time (beats)", 0.25, 2.0, 0.01, this.delayBeats);
     const delayFbSl = makeKnob("Feedback", 0, 0.95, 0.001, this.delayFeedback);
-    delayRow1.append(delayTimeSl.wrap, delayFbSl.wrap);
-    this.wrap.append(delayRow1);
-
-    const delayRow2 = el("div", "row one");
-    const delayRetSl = makeKnob("Return", 0, 1, 0.001, this.delayReturn);
-    delayRow2.append(delayRetSl.wrap);
-    this.wrap.append(delayRow2);
+    const delayRetSl = makeKnob("Dly Ret", 0, 1, 0.001, this.delayReturn);
 
     const revBar = el("div", "btnbar");
+    revBar.style.gridColumn = "1 / -1";
     const revBtn = el("button", "btn");
     revBtn.textContent = this.reverbEnabled ? "Reverb: On" : "Reverb: Off";
     revBar.append(revBtn);
-    this.wrap.append(revBar);
 
-    const revRow1 = el("div", "row");
     const revDecaySl = makeKnob("Decay", 0, 1, 0.001, this.reverbDecay);
     const revDampSl = makeKnob("Damp", 0, 1, 0.001, this.reverbDamp);
-    revRow1.append(revDecaySl.wrap, revDampSl.wrap);
-    this.wrap.append(revRow1);
+    const revRetSl = makeKnob("Rev Ret", 0, 1, 0.001, this.reverbReturn);
 
-    const revRow2 = el("div", "row one");
-    const revRetSl = makeKnob("Return", 0, 1, 0.001, this.reverbReturn);
-    revRow2.append(revRetSl.wrap);
-    this.wrap.append(revRow2);
+    body.append(
+      fxDriveSl.wrap,
+      delayBar,
+      delayTimeSl.wrap, delayFbSl.wrap, delayRetSl.wrap,
+      revBar,
+      revDecaySl.wrap, revDampSl.wrap, revRetSl.wrap
+    );
 
     fxDriveSl.input.addEventListener("input", () => {
       const v = Number(fxDriveSl.input.value);

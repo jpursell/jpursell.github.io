@@ -1,6 +1,6 @@
 import { AudioEngine } from "../audio/engine";
 import { type ArpPattern } from "../audio/protocol";
-import { el, makeSelect, makeKnob } from "./controls";
+import { el, makeSelect, makeKnob, makeModule } from "./controls";
 
 function renderBinaryStep(v: number, btn: HTMLButtonElement) {
   const on = (v | 0) === 1;
@@ -20,15 +20,15 @@ export class ArpUi {
   private arpOct: ReturnType<typeof makeKnob>;
 
   constructor(private engine: AudioEngine) {
-    this.wrap = el("div", "arp");
+    const { mod, body } = makeModule("Arpeggiator", "arp");
+    this.wrap = mod;
     
     const arpBar = el("div", "btnbar");
+    arpBar.style.gridColumn = "1 / -1";
     const arpBtn = el("button", "btn");
     arpBtn.textContent = "Arp: Off";
     arpBar.append(arpBtn);
-    this.wrap.append(arpBar);
-
-    const arpRow1 = el("div", "row");
+    
     this.arpOct = makeKnob("Arp Oct", 1, 4, 1, 1);
     const arpPat = makeSelect(
       "Pattern",
@@ -41,14 +41,16 @@ export class ArpUi {
       ],
       "up"
     );
-    arpRow1.append(this.arpOct.wrap, arpPat.wrap);
-    this.wrap.append(arpRow1);
 
     const arpLegend = el("div", "arpLegend");
     arpLegend.textContent = "Steps: Off / On";
-    this.wrap.append(arpLegend);
+    arpLegend.style.gridColumn = "1 / -1";
+    arpLegend.style.textAlign = "center";
+    arpLegend.style.fontSize = "11px";
+    arpLegend.style.marginTop = "8px";
 
     const arpGrid = el("div", "stepGrid");
+    arpGrid.style.gridColumn = "1 / -1";
     for (let i = 0; i < 16; i++) {
       const b = el("button", "stepBtn") as HTMLButtonElement;
       b.type = "button";
@@ -60,7 +62,8 @@ export class ArpUi {
       });
       arpGrid.append(b);
     }
-    this.wrap.append(arpGrid);
+    
+    body.append(arpBar, this.arpOct.wrap, arpPat.wrap, arpLegend, arpGrid);
 
     arpBtn.addEventListener("click", () => {
       this.arpEnabled = !this.arpEnabled;

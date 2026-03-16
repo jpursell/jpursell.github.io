@@ -4,6 +4,15 @@ export function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: st
   return node;
 }
 
+export function makeModule(title: string, className: string) {
+  const mod = el("div", `module ${className}`);
+  const header = el("div", "module-header");
+  header.textContent = title;
+  const body = el("div", "module-body");
+  mod.append(header, body);
+  return { mod, body };
+}
+
 export function setKnobText(target: HTMLElement, v: number) {
   target.textContent = v.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
 }

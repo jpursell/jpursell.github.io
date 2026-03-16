@@ -80,9 +80,8 @@ btnbar.append(startBtn, advBtn, octaveWrap, perfWidget);
 controls.append(btnbar);
 controls.append(synthUi.controlsWrap);
 
-const advanced = el("div", "advanced");
+const advanced = el("div", "advanced controls");
 advanced.hidden = true;
-advanced.append(synthUi.advancedWrap);
 
 const transportUi = new TransportUi(engine);
 const arpUi = new ArpUi(engine);
@@ -100,6 +99,7 @@ canvas.id = "keyboard";
 keyboardWrap.append(canvas);
 
 app.append(top, el("div"), keyboardWrap);
+top.addEventListener("scroll", () => synthUi.updateAllPaths());
 
 let audioReady = false;
 

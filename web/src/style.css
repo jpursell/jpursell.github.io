@@ -273,15 +273,6 @@ canvas#keyboard {
   max-height: calc(100dvh - var(--kbd_h_adv) - 24px);
 }
 
-.arp, .transport, .drums, .mixer, .fx {
-  display: grid;
-  gap: 10px;
-  padding: 10px;
-  background: rgba(0,0,0,0.2);
-  border-radius: 6px;
-  margin-top: 10px;
-}
-
 .stepGrid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);

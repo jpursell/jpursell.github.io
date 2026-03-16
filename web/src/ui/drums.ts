@@ -1,6 +1,6 @@
 import { AudioEngine } from "../audio/engine";
 import { type DrumId } from "../audio/protocol";
-import { el, makeKnob, setKnobText } from "./controls";
+import { el, makeKnob, setKnobText, makeModule } from "./controls";
 
 function renderBinaryStep(v: number, btn: HTMLButtonElement) {
   const on = (v | 0) === 1;
@@ -34,15 +34,20 @@ export class DrumsUi {
   private drumStepBtns: HTMLButtonElement[] = [];
 
   constructor(private engine: AudioEngine) {
-    this.wrap = el("div", "drums");
+    const { mod, body } = makeModule("Drums", "drums");
+    this.wrap = mod;
     
     const drumsBar = el("div", "btnbar");
+    drumsBar.style.gridColumn = "1 / -1";
     const drumsBtn = el("button", "btn");
     drumsBtn.textContent = "Drums: Off";
     drumsBar.append(drumsBtn);
-    this.wrap.append(drumsBar);
 
     const chanBar = el("div", "chanBar");
+    chanBar.style.gridColumn = "1 / -1";
+    chanBar.style.display = "flex";
+    chanBar.style.gap = "4px";
+    chanBar.style.justifyContent = "center";
     const makeChanBtn = (id: DrumId, label: string) => {
       const b = el("button", "btn chanBtn") as HTMLButtonElement;
       b.type = "button";
@@ -59,9 +64,9 @@ export class DrumsUi {
     makeChanBtn("snare", "Snare");
     makeChanBtn("ch", "CH");
     makeChanBtn("oh", "OH");
-    this.wrap.append(chanBar);
 
     const drumGrid = el("div", "stepGrid");
+    drumGrid.style.gridColumn = "1 / -1";
     for (let i = 0; i < 16; i++) {
       const b = el("button", "stepBtn") as HTMLButtonElement;
       b.type = "button";
@@ -74,19 +79,13 @@ export class DrumsUi {
       this.drumStepBtns.push(b);
       drumGrid.append(b);
     }
-    this.wrap.append(drumGrid);
 
-    const drumRow1 = el("div", "row");
     this.drumLevel = makeKnob("Level", 0, 1, 0.001, this.drumParams.kick.level);
     this.drumTune = makeKnob("Tune (st)", -12, 12, 1, this.drumParams.kick.tune);
     this.drumTune.right.textContent = String(this.drumParams.kick.tune);
-    drumRow1.append(this.drumLevel.wrap, this.drumTune.wrap);
-    this.wrap.append(drumRow1);
-
-    const drumRow2 = el("div", "row one");
     this.drumDecay = makeKnob("Decay", 0, 1, 0.001, this.drumParams.kick.decay);
-    drumRow2.append(this.drumDecay.wrap);
-    this.wrap.append(drumRow2);
+    
+    body.append(drumsBar, chanBar, drumGrid, this.drumLevel.wrap, this.drumTune.wrap, this.drumDecay.wrap);
 
     drumsBtn.addEventListener("click", () => {
       this.drumsEnabled = !this.drumsEnabled;

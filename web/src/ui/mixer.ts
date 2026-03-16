@@ -1,5 +1,5 @@
 import { AudioEngine } from "../audio/engine";
-import { el, makeKnob, setKnobText } from "./controls";
+import { el, makeKnob, setKnobText, makeModule } from "./controls";
 
 export class MixerUi {
   public wrap: HTMLElement;
@@ -11,23 +11,16 @@ export class MixerUi {
   private sendDrums = 0.1;
 
   constructor(private engine: AudioEngine) {
-    this.wrap = el("div", "mixer");
+    const { mod, body } = makeModule("Mixer", "mixer");
+    this.wrap = mod;
     
-    const mixRow1 = el("div", "row");
     const mixMasterSl = makeKnob("Master", 0, 1, 0.001, this.mixMaster);
     const mixSynthSl = makeKnob("Synth", 0, 1, 0.001, this.mixSynth);
-    mixRow1.append(mixMasterSl.wrap, mixSynthSl.wrap);
-
-    const mixRow2 = el("div", "row");
     const mixDrumsSl = makeKnob("Drums", 0, 1, 0.001, this.mixDrums);
     const sendSynthSl = makeKnob("FX Send (Synth)", 0, 1, 0.001, this.sendSynth);
-    mixRow2.append(mixDrumsSl.wrap, sendSynthSl.wrap);
-
-    const mixRow3 = el("div", "row one");
     const sendDrumsSl = makeKnob("FX Send (Drums)", 0, 1, 0.001, this.sendDrums);
-    mixRow3.append(sendDrumsSl.wrap);
 
-    this.wrap.append(mixRow1, mixRow2, mixRow3);
+    body.append(mixMasterSl.wrap, mixSynthSl.wrap, mixDrumsSl.wrap, sendSynthSl.wrap, sendDrumsSl.wrap);
 
     mixMasterSl.input.addEventListener("input", () => {
       const v = Number(mixMasterSl.input.value);
