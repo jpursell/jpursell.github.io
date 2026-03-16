@@ -50,7 +50,7 @@ function makeJack(type: "input" | "output", label: string, dataId: number, hasAm
 
 export class SynthUi {
   public updateAllPaths!: () => void;
-  public controlsWrap: HTMLElement;
+  public modules: HTMLElement[] = [];
   
   public waveform: 0 | 1 = 0;
   public osc2Waveform: 0 | 1 = 0;
@@ -90,7 +90,6 @@ export class SynthUi {
 
   constructor(private engine: AudioEngine) {
     this.store = new ParamStore(engine);
-    this.controlsWrap = el("div", "controls");
 
     this.waveBtn = el("button", "btn");
     this.waveBtn.textContent = "Osc1: Saw";
@@ -182,7 +181,7 @@ export class SynthUi {
       jLfo1Out.wrap, jLfo2Out.wrap
     );
 
-    this.controlsWrap.append(mOsc.mod, mFilt.mod, mEnv.mod, mLfo.mod);
+    this.modules = [mOsc.mod, mFilt.mod, mEnv.mod, mLfo.mod];
   }
 
   private wireListeners() {

@@ -82,14 +82,17 @@ const drumsUi = new DrumsUi(engine);
 const mixerUi = new MixerUi(engine);
 const fxUi = new FxUi(engine);
 
-controls.append(
-  synthUi.controlsWrap,
+const grid = el("div", "controls");
+grid.append(
+  ...synthUi.modules,
   transportUi.wrap,
   arpUi.wrap,
   drumsUi.wrap,
   mixerUi.wrap,
   fxUi.wrap
 );
+
+controls.append(btnbar, grid);
 top.append(controls);
 
 const keyboardWrap = el("div", "keyboardWrap");
