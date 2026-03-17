@@ -100,7 +100,8 @@ const canvas = document.createElement("canvas");
 canvas.id = "keyboard";
 keyboardWrap.append(canvas);
 
-app.replaceChildren(top, el("div"), keyboardWrap);
+const spacer = el("div", "spacer");
+app.replaceChildren(top, spacer, keyboardWrap);
 top.addEventListener("scroll", () => synthUi.updateAllPaths());
 
 let audioReady = false;

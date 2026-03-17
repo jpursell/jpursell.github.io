@@ -280,7 +280,7 @@ export class SynthUi {
       const dx = Math.abs(x2 - x1);
       const dy = Math.abs(y2 - y1);
       // Droop effect
-      const droop = Math.min(200, Math.max(50, dx * 0.5 + dy * 0.5));
+      const droop = Math.min(60, Math.max(30, dx * 0.25 + dy * 0.25));
       path.setAttribute("d", `M ${x1} ${y1} C ${x1} ${y1 + droop}, ${x2} ${y2 + droop}, ${x2} ${y2}`);
     };
 

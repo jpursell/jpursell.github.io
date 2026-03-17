@@ -250,9 +250,18 @@ body {
   font-size: 12px;
 }
 
+.spacer {
+  position: relative;
+  z-index: 101;
+  background: var(--bg0);
+}
+
 /* Keyboard */
 .keyboardWrap {
   padding: 10px;
+  position: relative;
+  z-index: 101;
+  background: var(--bg0);
 }
 
 canvas#keyboard {
