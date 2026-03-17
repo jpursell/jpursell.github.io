@@ -22,5 +22,11 @@
   "Lfo1Rate",
   "Lfo1Shape",
   "Lfo2Rate",
-  "Lfo2Shape"
+  "Lfo2Shape",
+  "OscFm",
+  "ShaperAmt",
+  "FilterType",
+  "CombTime",
+  "CombFeedback",
+  "CombMix"
 ]

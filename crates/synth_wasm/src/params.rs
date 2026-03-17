@@ -28,6 +28,12 @@ pub enum ParamId {
     Lfo1Shape = 21,
     Lfo2Rate = 22,
     Lfo2Shape = 23,
+    OscFm = 24,
+    ShaperAmt = 25,
+    FilterType = 26,
+    CombTime = 27,
+    CombFeedback = 28,
+    CombMix = 29,
 }
 
 impl TryFrom<u32> for ParamId {
@@ -59,6 +65,12 @@ impl TryFrom<u32> for ParamId {
             21 => Ok(ParamId::Lfo1Shape),
             22 => Ok(ParamId::Lfo2Rate),
             23 => Ok(ParamId::Lfo2Shape),
+            24 => Ok(ParamId::OscFm),
+            25 => Ok(ParamId::ShaperAmt),
+            26 => Ok(ParamId::FilterType),
+            27 => Ok(ParamId::CombTime),
+            28 => Ok(ParamId::CombFeedback),
+            29 => Ok(ParamId::CombMix),
             _ => Err(()),
         }
     }

@@ -1,4 +1,4 @@
-use crate::dsp::{env::Envelope, ladder::LadderLp, osc::Oscillator, lfo::Lfo};
+use crate::dsp::{env::Envelope, ladder::LadderLp, osc::Oscillator, lfo::Lfo, shaper::Shaper, lpg::Lpg, comb::CombFilter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModSource {
@@ -45,7 +45,6 @@ pub struct ModRouting {
     pub amount: f32,
 }
 
-#[derive(Debug)]
 pub struct Voice {
     pub note: i32,
     pub current_freq: f32,
@@ -57,17 +56,25 @@ pub struct Voice {
     pub osc_mix: f32,
     pub osc2_semitones: f32,
     pub detune_cents: f32,
+    pub osc_fm: f32,
 
     pub noise_level: f32,
     rng: u32,
+
+    pub shaper: Shaper,
 
     pub amp_env: Envelope,
     pub filt_env: Envelope,
 
     pub filter: LadderLp,
+    pub filter_type: f32,
+    pub lpg: Lpg,
+    
     pub cutoff_base_hz: f32,
     pub keytrack: f32,
     pub filter_env_amt_oct: f32,
+
+    pub comb: CombFilter,
 
     pub velocity: f32,
 
@@ -92,17 +99,25 @@ impl Voice {
             osc_mix: 0.35,
             osc2_semitones: 0.0,
             detune_cents: 0.0,
+            osc_fm: 0.0,
 
             noise_level: 0.0,
             rng: 0x1234_5678,
+
+            shaper: Shaper::new(),
 
             amp_env: Envelope::new(),
             filt_env: Envelope::new(),
 
             filter,
+            filter_type: 0.0,
+            lpg: Lpg::new(sr),
+
             cutoff_base_hz: 2_000.0,
             keytrack: 0.0,
             filter_env_amt_oct: 2.0,
+
+            comb: CombFilter::new(sr),
 
             velocity: 0.8,
 
@@ -166,17 +181,26 @@ impl Voice {
 
         let modded_freq = self.current_freq * (2.0_f32).powf(mod_pitch * 2.0); // +/- 2 octaves max range
 
-        let osc1 = self.osc1.next_sample(modded_freq, sr);
-
+        // Compute Osc2 first for FM routing
         let detune_semitones = self.osc2_semitones + (self.detune_cents / 100.0);
         let osc2_freq = modded_freq * (2.0_f32).powf(detune_semitones / 12.0);
         let osc2 = self.osc2.next_sample(osc2_freq, sr);
 
+        // Compute Osc1 with FM from Osc2
+        // Exponential FM: modded_freq * 2^(osc2 * fm_amount)
+        let fm_amount = self.osc_fm * 2.0; // Up to 2 octaves of modulation
+        let osc1_freq = modded_freq * (2.0_f32).powf(osc2 * fm_amount);
+        let osc1 = self.osc1.next_sample(osc1_freq, sr);
+
         let final_mix = (self.osc_mix + mod_oscmix).clamp(0.0, 1.0);
         let mix = (1.0 - final_mix) * osc1 + final_mix * osc2;
+        
+        // Shaper module
+        let shaped = self.shaper.process(mix);
+        
         let noise = self.noise_level * 0.25 * self.next_noise();
 
-        let x = (mix + noise) * amp * self.velocity * global_volume;
+        let x = shaped + noise;
 
         let key_oct = (self.note as f32 - 69.0) / 12.0;
         let key_factor = (2.0_f32).powf(self.keytrack * key_oct);
@@ -189,7 +213,17 @@ impl Voice {
         let cutoff = (self.cutoff_base_hz * key_factor * (2.0_f32).powf(total_mod))
             .clamp(20.0, sr * 0.45);
 
-        self.filter.process(x, cutoff)
+        // Filter / LPG routing
+        let filtered = if self.filter_type < 0.5 {
+            // East Coast: Standard Ladder LP + VCA
+            self.filter.process(x, cutoff) * amp * self.velocity * global_volume
+        } else {
+            // West Coast: Low Pass Gate
+            self.lpg.process(x, amp, cutoff) * self.velocity * global_volume
+        };
+
+        // Comb Delay
+        self.comb.process(filtered)
     }
 
     #[inline]

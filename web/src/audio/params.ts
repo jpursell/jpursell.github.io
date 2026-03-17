@@ -25,5 +25,11 @@ export const PARAM_LFO1_RATE = 20 as const;
 export const PARAM_LFO1_SHAPE = 21 as const;
 export const PARAM_LFO2_RATE = 22 as const;
 export const PARAM_LFO2_SHAPE = 23 as const;
+export const PARAM_OSC_FM = 24 as const;
+export const PARAM_SHAPER_AMT = 25 as const;
+export const PARAM_FILTER_TYPE = 26 as const;
+export const PARAM_COMB_TIME = 27 as const;
+export const PARAM_COMB_FEEDBACK = 28 as const;
+export const PARAM_COMB_MIX = 29 as const;
 
-export type SynthParamId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23;
+export type SynthParamId = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29;

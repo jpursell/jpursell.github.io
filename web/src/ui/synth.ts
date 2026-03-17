@@ -24,6 +24,12 @@ import {
   PARAM_SUSTAIN,
   PARAM_VOLUME,
   PARAM_WAVEFORM,
+  PARAM_OSC_FM,
+  PARAM_SHAPER_AMT,
+  PARAM_FILTER_TYPE,
+  PARAM_COMB_TIME,
+  PARAM_COMB_FEEDBACK,
+  PARAM_COMB_MIX,
   ModSource,
   ModDest
 } from "../audio/protocol";
@@ -80,6 +86,14 @@ export class SynthUi {
 
   public waveBtn: HTMLButtonElement;
   public osc2WaveBtn: HTMLButtonElement;
+  public filterBtn: HTMLButtonElement;
+
+  public oscFm!: Knob;
+  public shaperAmt!: Knob;
+  public filterType: 0 | 1 = 0;
+  public combTime!: Knob;
+  public combFeedback!: Knob;
+  public combMix!: Knob;
 
   private store: ParamStore;
   private jacks: HTMLElement[] = [];
@@ -95,6 +109,8 @@ export class SynthUi {
     this.waveBtn.textContent = "Osc1: Saw";
     this.osc2WaveBtn = el("button", "btn");
     this.osc2WaveBtn.textContent = "Osc2: Saw";
+    this.filterBtn = el("button", "btn");
+    this.filterBtn.textContent = "Filter: Ladder";
 
     this.buildControls();
     this.wireListeners();
@@ -102,13 +118,15 @@ export class SynthUi {
   }
 
   private buildControls() {
-    // OSCILLATORS
+    // OSCILLATORS & SHAPER
     const mOsc = makeModule("Complex Osc", "osc");
     this.oscMix = makeKnob("Mix", 0, 1, 0.001, 0.35);
     this.detune = makeKnob("Detune", -50, 50, 0.1, 0);
     this.osc2Semi = makeKnob("Osc2 Semi", -24, 24, 1, 0);
+    this.oscFm = makeKnob("Osc FM", 0, 1, 0.001, 0);
     this.noise = makeKnob("Noise", 0, 1, 0.001, 0);
     this.glide = makeKnob("Glide", 0, 0.75, 0.001, 0);
+    this.shaperAmt = makeKnob("Shaper", 0, 1, 0.001, 0);
     
     const jMixIn = makeJack("input", "Mix CV", ModDest.OscMix, true);
     const jPitchIn = makeJack("input", "Pitch CV", ModDest.Pitch, true);
@@ -119,12 +137,13 @@ export class SynthUi {
     mOsc.body.append(
       this.waveBtn, this.osc2WaveBtn,
       this.oscMix.wrap, this.detune.wrap,
-      this.osc2Semi.wrap, this.noise.wrap,
-      this.glide.wrap,
+      this.osc2Semi.wrap, this.oscFm.wrap,
+      this.noise.wrap, this.glide.wrap,
+      this.shaperAmt.wrap,
       jMixIn.wrap, jPitchIn.wrap
     );
 
-    // FILTER
+    // FILTER / LPG
     const mFilt = makeModule("Filter", "filter");
     this.cutoff = makeKnob("Cutoff", 0, 1, 0.001, 0.45);
     this.resonance = makeKnob("Resonance", 0, 1, 0.001, 0.2);
@@ -136,9 +155,20 @@ export class SynthUi {
     if (jCutoffIn.amtKnob) this.inputAmtKnobs.set(ModDest.Cutoff, jCutoffIn.amtKnob);
 
     mFilt.body.append(
+      this.filterBtn,
       this.cutoff.wrap, this.resonance.wrap,
       this.envAmt.wrap, this.keytrack.wrap,
       jCutoffIn.wrap
+    );
+
+    // COMB DELAY
+    const mComb = makeModule("Comb Delay", "comb");
+    this.combTime = makeKnob("Time", 0.001, 0.05, 0.001, 0.01);
+    this.combFeedback = makeKnob("Feedback", 0, 0.99, 0.001, 0.8);
+    this.combMix = makeKnob("Mix", 0, 1, 0.001, 0);
+
+    mComb.body.append(
+      this.combTime.wrap, this.combFeedback.wrap, this.combMix.wrap
     );
 
     // ENVELOPES
@@ -181,7 +211,7 @@ export class SynthUi {
       jLfo1Out.wrap, jLfo2Out.wrap
     );
 
-    this.modules = [mOsc.mod, mFilt.mod, mEnv.mod, mLfo.mod];
+    this.modules = [mOsc.mod, mFilt.mod, mComb.mod, mEnv.mod, mLfo.mod];
   }
 
   private wireListeners() {
@@ -199,6 +229,12 @@ export class SynthUi {
     this.store.bindKnob(this.noise, PARAM_NOISE);
     this.store.bindKnob(this.glide, PARAM_GLIDE);
     this.store.bindKnob(this.keytrack, PARAM_KEYTRACK);
+    this.store.bindKnob(this.oscFm, PARAM_OSC_FM);
+    this.store.bindKnob(this.shaperAmt, PARAM_SHAPER_AMT);
+    this.store.bindKnob(this.combTime, PARAM_COMB_TIME);
+    this.store.bindKnob(this.combFeedback, PARAM_COMB_FEEDBACK);
+    this.store.bindKnob(this.combMix, PARAM_COMB_MIX);
+
     this.store.bindKnob(this.fAtk, PARAM_FILT_ATTACK);
     this.store.bindKnob(this.fDec, PARAM_FILT_DECAY);
     this.store.bindKnob(this.fSus, PARAM_FILT_SUSTAIN);
@@ -219,6 +255,12 @@ export class SynthUi {
       this.osc2Waveform = this.osc2Waveform === 0 ? 1 : 0;
       this.osc2WaveBtn.textContent = this.osc2Waveform === 0 ? "Osc2: Saw" : "Osc2: Square";
       this.engine.setParam(PARAM_OSC2_WAVEFORM, this.osc2Waveform);
+    });
+
+    this.filterBtn.addEventListener("click", () => {
+      this.filterType = this.filterType === 0 ? 1 : 0;
+      this.filterBtn.textContent = this.filterType === 0 ? "Filter: Ladder" : "Filter: LPG";
+      this.engine.setParam(PARAM_FILTER_TYPE, this.filterType);
     });
   }
 

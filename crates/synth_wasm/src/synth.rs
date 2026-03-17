@@ -178,7 +178,13 @@ impl Synth {
                         _ => LfoShape::Triangle,
                     };
                     self.voice.lfo2.set_shape(s);
-                }
+                },
+                ParamId::OscFm => self.voice.osc_fm = value.clamp(0.0, 1.0),
+                ParamId::ShaperAmt => self.voice.shaper.amount = value.clamp(0.0, 1.0),
+                ParamId::FilterType => self.voice.filter_type = value.clamp(0.0, 1.0),
+                ParamId::CombTime => self.voice.comb.time_s = value.clamp(0.001, 0.05), // 1ms to 50ms
+                ParamId::CombFeedback => self.voice.comb.feedback = value.clamp(0.0, 0.99),
+                ParamId::CombMix => self.voice.comb.mix = value.clamp(0.0, 1.0),
             }
         }
     }
