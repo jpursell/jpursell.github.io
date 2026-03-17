@@ -5,6 +5,7 @@ web/public/wasm/synth.wasm
 
 target/
 crates/**/target/
+clippy.log
 
 .DS_Store
 Thumbs.db
