@@ -151,13 +151,11 @@ impl ArpState {
                     } else {
                         self.note_idx += 1;
                     }
+                } else if self.note_idx == 0 {
+                    self.updown_dir = 1;
+                    self.note_idx = (seq.len() - 1).min(self.note_idx + 1);
                 } else {
-                    if self.note_idx == 0 {
-                        self.updown_dir = 1;
-                        self.note_idx = (seq.len() - 1).min(self.note_idx + 1);
-                    } else {
-                        self.note_idx -= 1;
-                    }
+                    self.note_idx -= 1;
                 }
                 n
             } else {

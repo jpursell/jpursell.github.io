@@ -102,7 +102,7 @@ impl DrumMachine {
             let Some(pcm) = &self.samples[v.sample_idx] else { continue };
             let len = pcm.len();
             
-            for i in 0..dst.len() {
+            for sample in dst.iter_mut() {
                 let ip = v.pos as usize;
                 if ip >= len { break; }
 
@@ -111,7 +111,7 @@ impl DrumMachine {
                 let s1 = if ip + 1 < len { pcm[ip + 1] } else { s0 };
                 let s = s0 + (s1 - s0) * frac;
 
-                dst[i] += s * v.gain;
+                *sample += s * v.gain;
 
                 v.gain *= v.decay_coef;
                 v.pos += v.rate;

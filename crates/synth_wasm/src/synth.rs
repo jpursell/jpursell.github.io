@@ -99,12 +99,10 @@ impl Synth {
 
     pub fn add_mod_routing(&mut self, source: u32, dest: u32, amount: f32) {
         if let (Ok(s), Ok(d)) = (ModSource::try_from(source), ModDest::try_from(dest)) {
-            for m in self.voice.mod_matrix.iter_mut() {
-                if let Some(route) = m {
-                    if route.source == s && route.dest == d {
-                        route.amount = amount;
-                        return;
-                    }
+            for route in self.voice.mod_matrix.iter_mut().flatten() {
+                if route.source == s && route.dest == d {
+                    route.amount = amount;
+                    return;
                 }
             }
             for m in self.voice.mod_matrix.iter_mut() {
@@ -265,6 +263,7 @@ impl Synth {
         self.send_drums = send_drums.clamp(0.0, 1.0);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn set_fx(&mut self, drive: f32, 
                    delay_enabled: bool, delay_beats: f32, delay_feedback: f32, delay_return: f32,
                    reverb_enabled: bool, reverb_decay: f32, reverb_damp: f32, reverb_return: f32) {
@@ -303,11 +302,9 @@ impl Synth {
                 }
                 self.voice.note_on(next.0, next.1);
                 self.arp.current_note = Some(next.0);
-            } else {
-                if let Some(n) = self.arp.current_note {
-                    self.voice.note_off(n);
-                    self.arp.current_note = None;
-                }
+            } else if let Some(n) = self.arp.current_note {
+                self.voice.note_off(n);
+                self.arp.current_note = None;
             }
         }
 

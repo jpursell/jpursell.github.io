@@ -163,19 +163,17 @@ impl Voice {
         let mut mod_pitch = 0.0;
         let mut mod_oscmix = 0.0;
 
-        for m in &self.mod_matrix {
-            if let Some(route) = m {
-                let val = match route.source {
-                    ModSource::Lfo1 => lfo1_val,
-                    ModSource::Lfo2 => lfo2_val,
-                    ModSource::FiltEnv => fe,
-                };
-                let out = val * route.amount;
-                match route.dest {
-                    ModDest::Cutoff => mod_cutoff += out,
-                    ModDest::Pitch => mod_pitch += out,
-                    ModDest::OscMix => mod_oscmix += out,
-                }
+        for route in self.mod_matrix.iter().flatten() {
+            let val = match route.source {
+                ModSource::Lfo1 => lfo1_val,
+                ModSource::Lfo2 => lfo2_val,
+                ModSource::FiltEnv => fe,
+            };
+            let out = val * route.amount;
+            match route.dest {
+                ModDest::Cutoff => mod_cutoff += out,
+                ModDest::Pitch => mod_pitch += out,
+                ModDest::OscMix => mod_oscmix += out,
             }
         }
 

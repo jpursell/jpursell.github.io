@@ -21,10 +21,10 @@ impl TempoDelay {
     pub fn process_block(&mut self, input: &[f32], output: &mut [f32], enabled: bool, delay_samples: f32, feedback: f32) {
         let n = input.len();
         if !enabled {
-            for i in 0..n {
+            for sample in output.iter_mut().take(n) {
                 self.buf[self.write] = 0.0;
                 self.write = (self.write + 1) % self.buf.len();
-                output[i] = 0.0;
+                *sample = 0.0;
             }
             return;
         }
@@ -66,12 +66,11 @@ impl Comb {
 
     pub fn process_block(&mut self, input: &[f32], output: &mut [f32], feedback: f32, damp: f32) {
         let len = self.buf.len();
-        for i in 0..input.len() {
-            let x = input[i];
+        for (x, sample) in input.iter().zip(output.iter_mut()) {
             let y = self.buf[self.idx];
             self.filter_store = y * (1.0 - damp) + self.filter_store * damp;
-            self.buf[self.idx] = x + self.filter_store * feedback;
-            output[i] += y;
+            self.buf[self.idx] = *x + self.filter_store * feedback;
+            *sample += y;
             self.idx = (self.idx + 1) % len;
         }
     }
@@ -94,12 +93,12 @@ impl Allpass {
 
     pub fn process_block(&mut self, data: &mut [f32]) {
         let len = self.buf.len();
-        for i in 0..data.len() {
-            let x = data[i];
+        for sample in data.iter_mut() {
+            let x = *sample;
             let y = self.buf[self.idx];
             let out = -x + y;
             self.buf[self.idx] = x + y * self.fb;
-            data[i] = out;
+            *sample = out;
             self.idx = (self.idx + 1) % len;
         }
     }
@@ -141,8 +140,8 @@ impl SchroederReverb {
             c.process_block(input, output, feedback, d);
         }
 
-        for i in 0..n {
-            output[i] *= 0.25;
+        for sample in output.iter_mut().take(n) {
+            *sample *= 0.25;
         }
 
         for a in &mut self.allpasses {

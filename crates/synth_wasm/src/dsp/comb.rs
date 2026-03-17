@@ -35,7 +35,7 @@ impl CombFilter {
         let read_idx = self.write_ptr as f32 - delay_samples;
         let read_idx = if read_idx < 0.0 { read_idx + max_samples } else { read_idx };
         
-        let i_read = read_idx.floor() as usize;
+        let i_read = (read_idx.floor() as usize) % self.buffer.len();
         let frac = read_idx - i_read as f32;
         let next_i = (i_read + 1) % self.buffer.len();
         

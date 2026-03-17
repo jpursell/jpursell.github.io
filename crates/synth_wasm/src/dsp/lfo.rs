@@ -29,7 +29,7 @@ impl Lfo {
     }
 
     pub fn set_rate(&mut self, rate_hz: f32) {
-        self.rate_hz = rate_hz.max(0.01).min(100.0);
+        self.rate_hz = rate_hz.clamp(0.01, 100.0);
     }
 
     pub fn process(&mut self, sr: f32) -> f32 {
