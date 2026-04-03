@@ -6,9 +6,11 @@ import { el } from "./ui/controls";
 import { SynthUi } from "./ui/synth";
 import { TransportUi } from "./ui/transport";
 import { ArpUi } from "./ui/arp";
-import { DrumsUi } from "./ui/drums";
 import { MixerUi } from "./ui/mixer";
 import { FxUi } from "./ui/fx";
+import { TrackUi } from "./ui/track";
+import { SequencerUi } from "./ui/sequencer";
+import { XyPadUi } from "./ui/xy_pad";
 
 function isProbablyPhone(): boolean {
   const ud = (navigator as any).userAgentData as undefined | { mobile?: boolean };
@@ -21,6 +23,8 @@ if (!app) throw new Error("Missing #app");
 
 const engine = new AudioEngine();
 const isPhone = isProbablyPhone();
+
+let activeTrackId = 0;
 
 const top = el("div", "top");
 const title = el("div", "title");
@@ -78,16 +82,26 @@ controls.append(btnbar);
 
 const transportUi = new TransportUi(engine);
 const arpUi = new ArpUi(engine);
-const drumsUi = new DrumsUi(engine);
 const mixerUi = new MixerUi(engine);
 const fxUi = new FxUi(engine);
+const trackUi = new TrackUi(engine);
+const seqUi = new SequencerUi(engine);
+const xyPadUi = new XyPadUi(engine);
+
+trackUi.onTrackChange = (id) => {
+    activeTrackId = id;
+    seqUi.setTrackId(id);
+    xyPadUi.setTrackId(id);
+};
 
 const grid = el("div", "controls");
 grid.append(
   ...synthUi.modules,
+  trackUi.wrap,
   transportUi.wrap,
+  seqUi.wrap,
+  xyPadUi.wrap,
   arpUi.wrap,
-  drumsUi.wrap,
   mixerUi.wrap,
   fxUi.wrap
 );
@@ -118,12 +132,12 @@ octUp.addEventListener("click", () => setOctave(octaveShift + 1));
 
 const keyboard = new ThumbKeyboard(canvas, (ev: KeyEvent) => {
   if (ev.type === "down") {
-    engine.noteOn(ev.note, ev.velocity);
+    engine.noteOn(ev.note, ev.velocity, activeTrackId);
   } else if (ev.type === "up") {
-    engine.noteOff(ev.note);
+    engine.noteOff(ev.note, activeTrackId);
   } else if (ev.type === "move") {
-    engine.noteOff(ev.from);
-    engine.noteOn(ev.to, ev.velocity);
+    engine.noteOff(ev.from, activeTrackId);
+    engine.noteOn(ev.to, ev.velocity, activeTrackId);
   }
 });
 
@@ -134,11 +148,11 @@ if (!isPhone) {
     getBaseNote: () => 60 + octaveShift * 12,
     noteOn: (note, velocity) => {
       keyboard.setExternalActive(note, true);
-      engine.noteOn(note, velocity);
+      engine.noteOn(note, velocity, activeTrackId);
     },
     noteOff: (note) => {
       keyboard.setExternalActive(note, false);
-      engine.noteOff(note);
+      engine.noteOff(note, activeTrackId);
     },
     octaveDelta: (d) => setOctave(octaveShift + d)
   });
@@ -151,7 +165,7 @@ h2.textContent = "Start Audio";
 const p = el("p");
 p.textContent = isPhone
   ? "Mobile browsers require a tap before audio can start. After starting, play the keyboard. Slide for gliss."
-  : "Browsers require a click before audio can start. After starting, use the keys (A…K) or the on-screen keyboard.";
+  : "Browsers require a click before audio can start. After starting, use the keys (A...K) or the on-screen keyboard.";
 const start2 = el("button", "btn primary");
 start2.textContent = isPhone ? "Tap to Start" : "Click to Start";
 const err = el("div", "err");
@@ -170,7 +184,6 @@ async function startAudio() {
 
     transportUi.pushTempo();
     arpUi.pushArp();
-    drumsUi.pushDrums();
     mixerUi.pushMix();
     fxUi.pushFx();
     synthUi.pushAll();

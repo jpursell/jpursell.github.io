@@ -64,24 +64,24 @@ var SynthProcessor = class extends AudioWorkletProcessor {
         const dIdx = ids.indexOf(s.id);
         if (dIdx < 0) continue;
         mem.set(s.pcm, ptr >> 2);
-        ex.set_drum_sample(dIdx, ptr, s.pcm.length, msg.sr || sampleRate);
+        ex.set_drum_sample(msg.trackId, dIdx, ptr, s.pcm.length, msg.sr || sampleRate);
       }
       return;
     }
     if (msg.type === "drums") {
-      ex.set_drums_enabled(!!msg.enabled);
+      ex.set_drums_enabled(msg.trackId, !!msg.enabled);
       const ids = drumIds();
       for (let i = 0; i < 4; i++) {
         const id = ids[i];
         const pat = msg.patterns?.[id];
         if (pat) {
           for (let s = 0; s < 16; s++) {
-            ex.set_drum_pattern(i, s, pat[s] ? 1 : 0);
+            ex.set_drum_pattern(msg.trackId, i, s, pat[s] ? 1 : 0);
           }
         }
         const p = msg.params?.[id];
         if (p) {
-          ex.set_drum_params(i, p.level, Number(p.tune) || 0, p.decay);
+          ex.set_drum_params(msg.trackId, i, p.level, Number(p.tune) || 0, p.decay);
         }
       }
       return;
@@ -104,33 +104,57 @@ var SynthProcessor = class extends AudioWorkletProcessor {
       );
       return;
     }
+    if (msg.type === "scale") {
+      ex.set_scale(msg.rootNote, msg.scaleType);
+      return;
+    }
+    if (msg.type === "gridStep") {
+      ex.set_grid_step(msg.trackId, msg.step, msg.active, msg.scaleIndex, msg.velocity);
+      return;
+    }
+    if (msg.type === "gridSteps") {
+      ex.set_grid_steps(msg.trackId, msg.numSteps);
+      return;
+    }
+    if (msg.type === "record") {
+      ex.set_recording(msg.enabled);
+      return;
+    }
     if (msg.type === "arp") {
-      ex.set_arp(!!msg.enabled, msg.octaves, arpPatternToId(msg.pattern));
+      ex.set_arp(msg.trackId, !!msg.enabled, msg.octaves, arpPatternToId(msg.pattern));
       if (msg.steps) {
         for (let i = 0; i < 16; i++) {
-          ex.set_arp_step(i, msg.steps[i] ? 1 : 0);
+          ex.set_arp_step(msg.trackId, i, msg.steps[i] ? 1 : 0);
         }
       }
       return;
     }
     if (msg.type === "noteOn") {
-      ex.note_on(msg.note, msg.velocity);
+      ex.note_on(msg.trackId, msg.note, msg.velocity);
+      return;
+    }
+    if (msg.type === "noteOnScale") {
+      ex.note_on_scale(msg.trackId, msg.scaleIndex, msg.velocity);
+      return;
+    }
+    if (msg.type === "noteOffScale") {
+      ex.note_off_scale(msg.trackId, msg.scaleIndex);
       return;
     }
     if (msg.type === "noteOff") {
-      ex.note_off(msg.note);
+      ex.note_off(msg.trackId, msg.note);
       return;
     }
     if (msg.type === "param") {
-      ex.set_param(msg.id, msg.value);
+      ex.set_param(msg.trackId, msg.id, msg.value);
       return;
     }
     if (msg.type === "addMod") {
-      ex.add_mod_routing?.(msg.source, msg.dest, msg.amount);
+      ex.add_mod_routing?.(msg.trackId, msg.source, msg.dest, msg.amount);
       return;
     }
     if (msg.type === "removeMod") {
-      ex.remove_mod_routing?.(msg.source, msg.dest);
+      ex.remove_mod_routing?.(msg.trackId, msg.source, msg.dest);
       return;
     }
   }

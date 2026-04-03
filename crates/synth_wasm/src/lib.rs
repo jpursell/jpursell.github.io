@@ -8,6 +8,8 @@ mod voice;
 mod arp;
 mod drums;
 mod fx;
+mod track;
+mod scale;
 
 use synth::Synth;
 
@@ -42,28 +44,58 @@ pub unsafe extern "C" fn get_sample_transfer_ptr() -> *mut f32 {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn note_on(note: u8, velocity: f32) {
-    let _ = with_synth_mut(|s| s.note_on(note, velocity));
+pub unsafe extern "C" fn set_scale(root_note: u32, scale_type: u32) {
+    let _ = with_synth_mut(|s| s.set_scale(root_note, scale_type));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn note_off(note: u8) {
-    let _ = with_synth_mut(|s| s.note_off(note));
+pub unsafe extern "C" fn set_grid_step(track_id: u32, step: u32, active: bool, scale_index: u32, velocity: f32) {
+    let _ = with_synth_mut(|s| s.set_grid_step(track_id, step, active, scale_index, velocity));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn set_param(param_id: u32, value: f32) {
-    let _ = with_synth_mut(|s| s.set_param(param_id, value));
+pub unsafe extern "C" fn set_grid_steps(track_id: u32, num_steps: u32) {
+    let _ = with_synth_mut(|s| s.set_grid_steps(track_id, num_steps));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn add_mod_routing(source: u32, dest: u32, amount: f32) {
-    let _ = with_synth_mut(|s| s.add_mod_routing(source, dest, amount));
+pub unsafe extern "C" fn note_on(track_id: u32, note: u8, velocity: f32) {
+    let _ = with_synth_mut(|s| s.note_on(track_id, note, velocity));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn remove_mod_routing(source: u32, dest: u32) {
-    let _ = with_synth_mut(|s| s.remove_mod_routing(source, dest));
+pub unsafe extern "C" fn note_on_scale(track_id: u32, scale_index: i32, velocity: f32) {
+    let _ = with_synth_mut(|s| s.note_on_scale(track_id, scale_index, velocity));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn note_off_scale(track_id: u32, scale_index: i32) {
+    let _ = with_synth_mut(|s| s.note_off_scale(track_id, scale_index));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn note_off(track_id: u32, note: u8) {
+    let _ = with_synth_mut(|s| s.note_off(track_id, note));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn set_param(track_id: u32, param_id: u32, value: f32) {
+    let _ = with_synth_mut(|s| s.set_param(track_id, param_id, value));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn add_mod_routing(track_id: u32, source: u32, dest: u32, amount: f32) {
+    let _ = with_synth_mut(|s| s.add_mod_routing(track_id, source, dest, amount));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn remove_mod_routing(track_id: u32, source: u32, dest: u32) {
+    let _ = with_synth_mut(|s| s.remove_mod_routing(track_id, source, dest));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn set_recording(enabled: bool) {
+    let _ = with_synth_mut(|s| s.set_recording(enabled));
 }
 
 #[no_mangle]
@@ -72,35 +104,35 @@ pub unsafe extern "C" fn set_tempo(bpm: f32) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn set_arp(enabled: bool, octaves: u32, pattern: u32) {
-    let _ = with_synth_mut(|s| s.set_arp(enabled, octaves, pattern));
+pub unsafe extern "C" fn set_arp(track_id: u32, enabled: bool, octaves: u32, pattern: u32) {
+    let _ = with_synth_mut(|s| s.set_arp(track_id, enabled, octaves, pattern));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn set_arp_step(idx: usize, value: u8) {
-    let _ = with_synth_mut(|s| s.set_arp_step(idx, value));
+pub unsafe extern "C" fn set_arp_step(track_id: u32, idx: usize, value: u8) {
+    let _ = with_synth_mut(|s| s.set_arp_step(track_id, idx, value));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn set_drums_enabled(enabled: bool) {
-    let _ = with_synth_mut(|s| s.set_drums_enabled(enabled));
+pub unsafe extern "C" fn set_drums_enabled(track_id: u32, enabled: bool) {
+    let _ = with_synth_mut(|s| s.set_drums_enabled(track_id, enabled));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn set_drum_pattern(drum_idx: u32, step_idx: u32, value: u8) {
-    let _ = with_synth_mut(|s| s.set_drum_pattern(drum_idx, step_idx, value));
+pub unsafe extern "C" fn set_drum_pattern(track_id: u32, drum_idx: u32, step_idx: u32, value: u8) {
+    let _ = with_synth_mut(|s| s.set_drum_pattern(track_id, drum_idx, step_idx, value));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn set_drum_params(drum_idx: u32, level: f32, tune: f32, decay: f32) {
-    let _ = with_synth_mut(|s| s.set_drum_params(drum_idx, level, tune, decay));
+pub unsafe extern "C" fn set_drum_params(track_id: u32, drum_idx: u32, level: f32, tune: f32, decay: f32) {
+    let _ = with_synth_mut(|s| s.set_drum_params(track_id, drum_idx, level, tune, decay));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn set_drum_sample(drum_idx: u32, ptr: *const f32, len: usize, sr: f32) {
+pub unsafe extern "C" fn set_drum_sample(track_id: u32, drum_idx: u32, ptr: *const f32, len: usize, sr: f32) {
     let _ = with_synth_mut(|s| {
         let samples = std::slice::from_raw_parts(ptr, len).to_vec();
-        s.set_drum_sample(drum_idx, samples, sr);
+        s.set_drum_sample(track_id, drum_idx, samples, sr);
     });
 }
 

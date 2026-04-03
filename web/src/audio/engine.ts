@@ -101,7 +101,7 @@ export class AudioEngine {
       { id: "oh", pcm: await decodeWavToMonoPcm(ctx, `${drumBase}oh.wav`) }
     ];
 
-    const samplesMsg: DrumSamplesMsg = { type: "drumSamples", sr: ctx.sampleRate, samples: drums };
+    const samplesMsg: DrumSamplesMsg = { type: "drumSamples", trackId: 1, sr: ctx.sampleRate, samples: drums };
     node.port.postMessage(
       samplesMsg,
       drums.map((d) => d.pcm.buffer)
@@ -133,36 +133,44 @@ export class AudioEngine {
     this.started = true;
   }
 
-  setParam(id: SynthParamId, value: number): void {
-    this.post({ type: "param", id, value });
+  setParam(id: SynthParamId, value: number, trackId: number = 0): void {
+    this.post({ type: "param", trackId, id, value });
   }
 
-  addModulation(source: ModSource, dest: ModDest, amount: number): void {
-    this.post({ type: "addMod", source, dest, amount });
+  addModulation(source: ModSource, dest: ModDest, amount: number, trackId: number = 0): void {
+    this.post({ type: "addMod", trackId, source, dest, amount });
   }
 
-  removeModulation(source: ModSource, dest: ModDest): void {
-    this.post({ type: "removeMod", source, dest });
+  removeModulation(source: ModSource, dest: ModDest, trackId: number = 0): void {
+    this.post({ type: "removeMod", trackId, source, dest });
   }
 
-  noteOn(note: number, velocity: number): void {
-    this.post({ type: "noteOn", note, velocity });
+  noteOn(note: number, velocity: number, trackId: number = 0): void {
+    this.post({ type: "noteOn", trackId, note, velocity });
   }
 
-  noteOff(note: number): void {
-    this.post({ type: "noteOff", note });
+  noteOnScale(scaleIndex: number, velocity: number, trackId: number = 0): void {
+    this.post({ type: "noteOnScale", trackId, scaleIndex, velocity });
+  }
+
+  noteOffScale(scaleIndex: number, trackId: number = 0): void {
+    this.post({ type: "noteOffScale", trackId, scaleIndex });
+  }
+
+  noteOff(note: number, trackId: number = 0): void {
+    this.post({ type: "noteOff", trackId, note });
   }
 
   setTempo(bpm: number): void {
     this.post({ type: "tempo", bpm });
   }
 
-  setArp(config: Omit<ArpMsg, "type">): void {
-    this.post({ type: "arp", ...config });
+  setArp(config: Omit<ArpMsg, "type" | "trackId">, trackId: number = 0): void {
+    this.post({ type: "arp", trackId, ...config });
   }
 
-  setDrums(config: Omit<DrumMsg, "type">): void {
-    this.post({ type: "drums", ...config });
+  setDrums(config: Omit<DrumMsg, "type" | "trackId">, trackId: number = 1): void {
+    this.post({ type: "drums", trackId, ...config });
   }
 
   setMix(config: Omit<MixMsg, "type">): void {
@@ -173,7 +181,23 @@ export class AudioEngine {
     this.post({ type: "fx", ...config });
   }
 
-  private post(msg: Msg): void {
+  setScale(rootNote: number, scaleType: number): void {
+    this.post({ type: "scale", rootNote, scaleType });
+  }
+
+  setGridStep(trackId: number, step: number, active: boolean, scaleIndex: number, velocity: number = 1.0): void {
+    this.post({ type: "gridStep", trackId, step, active, scaleIndex, velocity });
+  }
+
+  setGridSteps(trackId: number, numSteps: number): void {
+    this.post({ type: "gridSteps", trackId, numSteps });
+  }
+
+  setRecording(enabled: boolean): void {
+    this.post({ type: "record", enabled });
+  }
+
+  private post(msg: Msg | { type: "scale" | "gridStep" | "gridSteps" | "record" } & any): void {
     if (!this.node) return;
     this.node.port.postMessage(msg);
   }
