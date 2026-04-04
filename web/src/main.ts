@@ -97,10 +97,6 @@ trackUi.onTrackChange = (id) => {
 const grid = el("div", "controls");
 grid.append(
   ...synthUi.modules,
-  trackUi.wrap,
-  transportUi.wrap,
-  seqUi.wrap,
-  xyPadUi.wrap,
   arpUi.wrap,
   mixerUi.wrap,
   fxUi.wrap
@@ -109,13 +105,56 @@ grid.append(
 controls.append(btnbar, grid);
 top.append(controls);
 
+const bottomPanel = el("div", "bottom-panel");
+const bottomControlsRow = el("div", "bottom-controls-row");
+
+const inputModule = el("div", "module");
+const inputHeader = el("div", "module-header");
+inputHeader.textContent = "Input View";
+const inputSelector = el("div", "module-body");
+inputSelector.style.display = "flex";
+inputSelector.style.flexDirection = "column";
+
+const kbdBtn = el("button", "btn");
+kbdBtn.textContent = "Keyboard";
+const seqBtn = el("button", "btn");
+seqBtn.textContent = "Sequencer";
+const xyBtn = el("button", "btn");
+xyBtn.textContent = "XY Pad";
+
+inputSelector.append(kbdBtn, seqBtn, xyBtn);
+inputModule.append(inputHeader, inputSelector);
+
+bottomControlsRow.append(trackUi.wrap, transportUi.wrap, inputModule);
+
+const inputArea = el("div", "input-area");
+
 const keyboardWrap = el("div", "keyboardWrap");
 const canvas = document.createElement("canvas");
 canvas.id = "keyboard";
 keyboardWrap.append(canvas);
 
+inputArea.append(keyboardWrap, seqUi.wrap, xyPadUi.wrap);
+
+const updateInputView = (view: "kbd" | "seq" | "xy") => {
+    kbdBtn.style.backgroundColor = view === "kbd" ? "rgba(242, 193, 78, 0.4)" : "";
+    seqBtn.style.backgroundColor = view === "seq" ? "rgba(242, 193, 78, 0.4)" : "";
+    xyBtn.style.backgroundColor = view === "xy" ? "rgba(242, 193, 78, 0.4)" : "";
+
+    keyboardWrap.style.display = view === "kbd" ? "block" : "none";
+    seqUi.wrap.style.display = view === "seq" ? "flex" : "none";
+    xyPadUi.wrap.style.display = view === "xy" ? "flex" : "none";
+};
+
+kbdBtn.addEventListener("click", () => updateInputView("kbd"));
+seqBtn.addEventListener("click", () => updateInputView("seq"));
+xyBtn.addEventListener("click", () => updateInputView("xy"));
+updateInputView("kbd");
+
+bottomPanel.append(bottomControlsRow, inputArea);
+
 const spacer = el("div", "spacer");
-app.replaceChildren(top, spacer, keyboardWrap);
+app.replaceChildren(top, spacer, bottomPanel);
 top.addEventListener("scroll", () => synthUi.updateAllPaths());
 
 let audioReady = false;

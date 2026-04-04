@@ -18,6 +18,7 @@ export class SequencerUi {
     this.engine = engine;
     this.wrap = el("div", "module sequencer");
     this.wrap.style.flexDirection = "column";
+    this.wrap.style.height = "100%";
 
     const h2 = el("h2");
     h2.textContent = "Grid Sequencer";
@@ -27,11 +28,12 @@ export class SequencerUi {
     this.canvas.height = 300;
     this.canvas.style.cursor = "crosshair";
     this.canvas.style.width = "100%";
-    this.canvas.style.height = "auto";
-    this.canvas.style.aspectRatio = "2 / 1";
-    this.canvas.style.backgroundColor = "var(--bg-d)";
-    this.canvas.style.border = "1px solid var(--border)";
+    this.canvas.style.height = "100%";
+    this.canvas.style.minHeight = "200px";
+    this.canvas.style.backgroundColor = "#0a0f14";
     this.canvas.style.touchAction = "none";
+    this.canvas.style.borderRadius = "4px";
+    this.canvas.style.marginTop = "10px";
     
     const ctx = this.canvas.getContext("2d");
     if (!ctx) throw new Error("No 2d context");
@@ -54,6 +56,16 @@ export class SequencerUi {
     this.canvas.addEventListener("pointercancel", up);
     this.canvas.addEventListener("pointerleave", up);
 
+    const ro = new ResizeObserver(() => {
+        const rect = this.canvas.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+            this.canvas.width = rect.width;
+            this.canvas.height = rect.height;
+            this.draw();
+        }
+    });
+    ro.observe(this.canvas);
+
     this.wrap.append(h2, this.canvas);
     this.draw();
   }
@@ -73,19 +85,33 @@ export class SequencerUi {
     this.draw();
   }
 
+  private getRows() {
+      return this.trackId === 0 ? this.numScaleNotes : 4;
+  }
+
+  private getLeftMargin() {
+      return this.trackId === 0 ? 0 : 80;
+  }
+
   private toggleStep(e: PointerEvent, setOnly = false) {
     const rect = this.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const rows = this.getRows();
+    const leftMargin = this.getLeftMargin();
+    
+    const x = e.clientX - rect.left - leftMargin;
     const y = e.clientY - rect.top;
 
-    const stepW = rect.width / this.numSteps;
-    const stepH = rect.height / this.numScaleNotes;
+    if (x < 0) return;
+
+    const gridW = rect.width - leftMargin;
+    const stepW = gridW / this.numSteps;
+    const stepH = rect.height / rows;
 
     const stepIdx = Math.floor(x / stepW);
-    const noteIdx = Math.floor(y / stepH);
+    const rowIdx = Math.floor(y / stepH);
 
-    if (stepIdx >= 0 && stepIdx < this.numSteps && noteIdx >= 0 && noteIdx < this.numScaleNotes) {
-      const actualNoteIdx = this.numScaleNotes - 1 - noteIdx; // 0 is bottom
+    if (stepIdx >= 0 && stepIdx < this.numSteps && rowIdx >= 0 && rowIdx < rows) {
+      const actualNoteIdx = rows - 1 - rowIdx; // 0 is bottom
       const steps = this.trackSteps[this.trackId];
       if (setOnly) {
          if (!steps[stepIdx][actualNoteIdx]) {
@@ -100,46 +126,111 @@ export class SequencerUi {
     }
   }
 
+  private roundRect(x: number, y: number, w: number, h: number, r: number) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + r, y);
+      this.ctx.lineTo(x + w - r, y);
+      this.ctx.arcTo(x + w, y, x + w, y + r, r);
+      this.ctx.lineTo(x + w, y + h - r);
+      this.ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+      this.ctx.lineTo(x + r, y + h);
+      this.ctx.arcTo(x, y + h, x, y + h - r, r);
+      this.ctx.lineTo(x, y + r);
+      this.ctx.arcTo(x, y, x + r, y, r);
+      this.ctx.closePath();
+  }
+
   private draw() {
     const w = this.canvas.width;
     const h = this.canvas.height;
-    this.ctx.clearRect(0, 0, w, h);
+    if (w === 0 || h === 0) return;
 
-    const stepW = w / this.numSteps;
-    const stepH = h / this.numScaleNotes;
+    this.ctx.clearRect(0, 0, w, h);
+    this.ctx.fillStyle = "#0a0f14";
+    this.ctx.fillRect(0, 0, w, h);
+
+    const rows = this.getRows();
+    const leftMargin = this.getLeftMargin();
+    const gridW = w - leftMargin;
+
+    const stepW = gridW / this.numSteps;
+    const stepH = h / rows;
+
+    const steps = this.trackSteps[this.trackId];
+    if (!steps) return;
+
+    const drumLabels = ["Kick", "Snare", "HiHat", "Open Hat"];
+    const drumColors = ["#8b966a", "#a84242", "#517a94", "#4d82b8"]; // using variables roughly
+
+    for (let r = 0; r < rows; r++) {
+        const actualNoteIdx = rows - 1 - r;
+        const y = r * stepH;
+
+        if (this.trackId === 0) {
+            if (actualNoteIdx === 0 || actualNoteIdx === 7) {
+                this.ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+                this.ctx.fillRect(leftMargin, y, gridW, stepH);
+            }
+        } else {
+            this.ctx.fillStyle = drumColors[actualNoteIdx] || "#fff";
+            this.ctx.font = "bold 12px sans-serif";
+            this.ctx.textAlign = "right";
+            this.ctx.textBaseline = "middle";
+            this.ctx.fillText(drumLabels[actualNoteIdx] || `Drum ${actualNoteIdx}`, leftMargin - 15, y + stepH / 2);
+        }
+    }
 
     this.ctx.strokeStyle = "#2a3644";
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
     for (let i = 1; i < this.numSteps; i++) {
-      this.ctx.moveTo(i * stepW, 0);
-      this.ctx.lineTo(i * stepW, h);
+        const x = leftMargin + i * stepW;
+        this.ctx.moveTo(x, 0);
+        this.ctx.lineTo(x, h);
     }
-    for (let j = 1; j < this.numScaleNotes; j++) {
-      this.ctx.moveTo(0, j * stepH);
-      this.ctx.lineTo(w, j * stepH);
+    for (let j = 1; j < rows; j++) {
+        this.ctx.moveTo(leftMargin, j * stepH);
+        this.ctx.lineTo(w, j * stepH);
     }
     this.ctx.stroke();
 
-    // highlight beats
     this.ctx.strokeStyle = "#3b4b5e";
+    this.ctx.lineWidth = 2;
     this.ctx.beginPath();
     for (let i = 0; i < this.numSteps; i += 4) {
         if (i===0) continue;
-        this.ctx.moveTo(i * stepW, 0);
-        this.ctx.lineTo(i * stepW, h);
+        const x = leftMargin + i * stepW;
+        this.ctx.moveTo(x, 0);
+        this.ctx.lineTo(x, h);
     }
     this.ctx.stroke();
 
-    const steps = this.trackSteps[this.trackId];
-    if (!steps) return;
+    const padX = stepW * 0.15;
+    const padY = stepH * 0.15;
 
-    this.ctx.fillStyle = this.trackId === 0 ? "#55aaff" : "#ff55aa";
     for (let i = 0; i < this.numSteps; i++) {
-      for (let j = 0; j < this.numScaleNotes; j++) {
-        if (steps[i][j]) {
-          const y = h - (j + 1) * stepH;
-          this.ctx.fillRect(i * stepW + 1, y + 1, stepW - 2, stepH - 2);
+      for (let actualNoteIdx = 0; actualNoteIdx < rows; actualNoteIdx++) {
+        const r = rows - 1 - actualNoteIdx;
+        const x = leftMargin + i * stepW;
+        const y = r * stepH;
+
+        if (steps[i][actualNoteIdx]) {
+            if (this.trackId === 0) {
+                this.ctx.fillStyle = "#f2c14e"; // synth color
+            } else {
+                this.ctx.fillStyle = drumColors[actualNoteIdx] || "#fff";
+            }
+            this.roundRect(x + padX, y + padY, stepW - padX*2, stepH - padY*2, 4);
+            this.ctx.fill();
+        } else {
+            if (this.trackId === 1) {
+               this.ctx.fillStyle = "rgba(255,255,255,0.03)";
+               this.roundRect(x + padX, y + padY, stepW - padX*2, stepH - padY*2, 4);
+               this.ctx.fill();
+               this.ctx.strokeStyle = "rgba(255,255,255,0.1)";
+               this.ctx.lineWidth = 1;
+               this.ctx.stroke();
+            }
         }
       }
     }
