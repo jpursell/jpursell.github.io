@@ -1,5 +1,5 @@
 use crate::voice::Voice;
-use crate::drums::DrumMachine;
+use crate::drums::{DrumMachine, DrumId};
 use crate::arp::{ArpState, ArpPattern};
 
 pub enum Instrument {
@@ -68,8 +68,13 @@ impl Track {
         if !self.enabled { return; }
         self.arp.note_on(note, velocity);
         if !self.arp.enabled {
-            if let Instrument::Synth(v) = &mut self.instrument {
-                v.note_on(note, velocity);
+            match &mut self.instrument {
+                Instrument::Synth(v) => v.note_on(note, velocity),
+                Instrument::Drums(d) => {
+                    if let Some(id) = DrumId::from_u32((note as u32) % 4) {
+                        d.trigger_drum(id);
+                    }
+                }
             }
         }
     }
@@ -77,8 +82,9 @@ impl Track {
     pub fn note_off(&mut self, note: u8) {
         self.arp.note_off(note);
         if !self.arp.enabled {
-            if let Instrument::Synth(v) = &mut self.instrument {
-                v.note_off(note);
+            match &mut self.instrument {
+                Instrument::Synth(v) => v.note_off(note),
+                Instrument::Drums(_) => {} // Drums are one-shot, no note-off needed
             }
         }
     }

@@ -218,6 +218,14 @@ impl Synth {
                         ParamId::CombMix => v.comb.mix = value.clamp(0.0, 1.0),
                     }
                 }
+            } else if let Instrument::Drums(d) = &mut t.instrument {
+                if let Ok(param) = ParamId::try_from(param_id) {
+                    if let ParamId::Cutoff = param {
+                        for p in &mut d.params {
+                            p.decay = value.clamp(0.01, 1.0);
+                        }
+                    }
+                }
             }
         }
     }
@@ -244,6 +252,12 @@ impl Synth {
                 s.active = active;
                 s.scale_index = scale_index as i32;
                 s.velocity = velocity;
+            }
+            if let Instrument::Drums(d) = &mut t.instrument {
+                if step < 16 {
+                    let drum_idx = scale_index % 4;
+                    d.patterns[drum_idx as usize][step as usize] = if active { 1 } else { 0 };
+                }
             }
         }
     }
