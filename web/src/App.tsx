@@ -2,12 +2,12 @@ import { h, Fragment } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useSignal, useComputed, effect } from "@preact/signals";
 import { AudioEngine } from "./audio/engine";
+import { createAudioSync } from "./audio/sync";
 import { 
   activeTrackId, 
   audioReady, 
   octaveShift, 
   inputView,
-  setupAudioSync,
   synthParams,
   mixerState,
   fxState,
@@ -45,7 +45,7 @@ export function App({ engine }: Props) {
   const perfWidgetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setupAudioSync(engine);
+    const cleanupSync = createAudioSync(engine);
     
     engine.onStats = (loadPct, wasmPct, jsPct) => {
       if (perfWidgetRef.current) {

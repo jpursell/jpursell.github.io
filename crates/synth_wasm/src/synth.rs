@@ -4,41 +4,24 @@ use crate::dsp::osc::Waveform;
 use crate::dsp::lfo::LfoShape;
 use crate::drums::DrumId;
 use crate::voice::{ModSource, ModDest, ModRouting};
-use crate::fx::{TempoDelay, SchroederReverb, softclip};
+use crate::fx::softclip;
 use crate::scale::{Scale, ScaleType};
+use crate::mixer::Mixer;
 
 pub struct Synth {
     sr: f32,
     pub tracks: Vec<Track>,
     pub scale: Scale,
-
-    pub delay: TempoDelay,
-    pub reverb: SchroederReverb,
+    pub mixer: Mixer,
 
     pub tempo_bpm: f32,
     pub step_idx: usize,
     pub samples_until_step: f32,
     pub step_rem_acc: f32,
 
-    pub master_vol: f32,
-
-    pub drive: f32,
-    pub delay_enabled: bool,
-    pub delay_beats: f32,
-    pub delay_feedback: f32,
-    pub delay_return: f32,
-    pub reverb_enabled: bool,
-    pub reverb_decay: f32,
-    pub reverb_damp: f32,
-    pub reverb_return: f32,
-
     pub is_recording: bool,
 
     tmp_track: [f32; 128],
-    tmp_mix: [f32; 128],
-    tmp_send: [f32; 128],
-    tmp_delay_out: [f32; 128],
-    tmp_reverb_out: [f32; 128],
 }
 
 impl Synth {
@@ -52,33 +35,16 @@ impl Synth {
             sr,
             tracks,
             scale: Scale::new(),
-            delay: TempoDelay::new(sr, 3.6),
-            reverb: SchroederReverb::new(sr),
+            mixer: Mixer::new(sr),
 
             tempo_bpm: 120.0,
             step_idx: 0,
             samples_until_step: 0.0,
             step_rem_acc: 0.0,
 
-            master_vol: 0.9,
-
-            drive: 0.2,
-            delay_enabled: true,
-            delay_beats: 0.5,
-            delay_feedback: 0.35,
-            delay_return: 0.25,
-            reverb_enabled: true,
-            reverb_decay: 0.45,
-            reverb_damp: 0.4,
-            reverb_return: 0.18,
-
             is_recording: false,
 
             tmp_track: [0.0; 128],
-            tmp_mix: [0.0; 128],
-            tmp_send: [0.0; 128],
-            tmp_delay_out: [0.0; 128],
-            tmp_reverb_out: [0.0; 128],
         }
     }
 
@@ -340,7 +306,7 @@ impl Synth {
     }
 
     pub fn set_mix(&mut self, master: f32, synth: f32, drums: f32, send_synth: f32, send_drums: f32) {
-        self.master_vol = master.clamp(0.0, 1.0);
+        self.mixer.master_vol = master.clamp(0.0, 1.0);
         if let Some(t) = self.tracks.get_mut(0) {
             t.volume = synth.clamp(0.0, 1.0);
             t.send_amount = send_synth.clamp(0.0, 1.0);
@@ -355,22 +321,7 @@ impl Synth {
     pub fn set_fx(&mut self, drive: f32,
                    delay_enabled: bool, delay_beats: f32, delay_feedback: f32, delay_return: f32,
                    reverb_enabled: bool, reverb_decay: f32, reverb_damp: f32, reverb_return: f32) {
-        self.drive = drive.clamp(0.0, 1.0);
-
-        let was_delay = self.delay_enabled;
-        self.delay_enabled = delay_enabled;
-        self.delay_beats = delay_beats.clamp(0.25, 2.0);
-        self.delay_feedback = delay_feedback.clamp(0.0, 0.95);
-        self.delay_return = delay_return.clamp(0.0, 1.0);
-
-        if was_delay && !delay_enabled {
-            self.delay.clear();
-        }
-
-        self.reverb_enabled = reverb_enabled;
-        self.reverb_decay = reverb_decay.clamp(0.0, 1.0);
-        self.reverb_damp = reverb_damp.clamp(0.0, 1.0);
-        self.reverb_return = reverb_return.clamp(0.0, 1.0);
+        self.mixer.set_fx(drive, delay_enabled, delay_beats, delay_feedback, delay_return, reverb_enabled, reverb_decay, reverb_damp, reverb_return);
     }
 
     fn transport_enabled(&self) -> bool {
@@ -477,10 +428,9 @@ impl Synth {
                 n = n.min(self.samples_until_step.ceil() as usize).max(1);
             }
 
-            self.tmp_mix[..n].fill(0.0);
-            self.tmp_send[..n].fill(0.0);
+            self.mixer.begin_block(n);
 
-            let pregain = 1.0 + self.drive * 12.0;
+            let pregain = 1.0 + self.mixer.drive * 12.0;
             let drive_trim = 1.0 / softclip(pregain);
 
             for track in self.tracks.iter_mut() {
@@ -492,7 +442,7 @@ impl Synth {
                         for i in 0..n {
                             self.tmp_track[i] = v.render(self.sr, 1.0);
                         }
-                        if self.drive > 0.0001 {
+                        if self.mixer.drive > 0.0001 {
                             for i in 0..n {
                                 self.tmp_track[i] = softclip(self.tmp_track[i] * pregain) * drive_trim;
                             }
@@ -503,30 +453,10 @@ impl Synth {
                     }
                 }
 
-                let vol = track.volume;
-                let send = track.send_amount;
-                for i in 0..n {
-                    let s = self.tmp_track[i];
-                    self.tmp_mix[i] += s * vol;
-                    self.tmp_send[i] += s * send;
-                }
+                self.mixer.add_track(&self.tmp_track[..n], track.volume, track.send_amount, n);
             }
 
-            // FX
-            let delay_samples = self.sr * (60.0 / self.tempo_bpm.max(1.0)) * self.delay_beats;
-
-            self.delay.process_block(&self.tmp_send[..n], &mut self.tmp_delay_out[..n], self.delay_enabled, delay_samples, self.delay_feedback);
-            self.reverb.process_block(&self.tmp_send[..n], &mut self.tmp_reverb_out[..n], self.reverb_enabled, self.reverb_decay, self.reverb_damp);
-
-            for i in 0..n {
-                let dry = self.tmp_mix[i];
-                let del = self.tmp_delay_out[i] * self.delay_return;
-                let rev = self.tmp_reverb_out[i] * self.reverb_return;
-
-                let mut y = (dry + del + rev) * self.master_vol;
-                y = softclip(y);
-                out[offset + i] = y;
-            }
+            self.mixer.finish_block(out, offset, n, self.sr, self.tempo_bpm);
 
             offset += n;
             if self.transport_enabled() {
