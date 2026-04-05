@@ -14,6 +14,9 @@ import type {
   ModDest
 } from "./protocol";
 
+// @ts-ignore: Vite specific import
+import workletUrl from "./worklet?worker&url";
+
 type Msg = ControlMsg | TempoMsg | ArpMsg | DrumMsg | DrumSamplesMsg | MixMsg | FxMsg;
 
 type DecodedDrum = { id: DrumId; pcm: Float32Array };
@@ -49,9 +52,8 @@ export class AudioEngine {
     if (this.started) return;
 
     const ctx = new AudioContext({ latencyHint: "balanced" });
-    const workletUrl = new URL("worklet.js", window.location.href);
 
-    await ctx.audioWorklet.addModule(workletUrl.toString());
+    await ctx.audioWorklet.addModule(workletUrl);
 
     const node = new AudioWorkletNode(ctx, "synth-processor", {
       numberOfInputs: 0,

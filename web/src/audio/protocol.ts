@@ -1,5 +1,6 @@
 export * from "./params";
-export type { SynthParamId } from "./params";
+import type { SynthParamId } from "./params";
+export type { SynthParamId };
 
 export enum ModSource {
   Lfo1 = 0,

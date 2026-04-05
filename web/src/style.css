@@ -258,6 +258,7 @@ body {
 
 /* Keyboard */
 .keyboardWrap {
+  height: 100%;
   padding: 10px;
   position: relative;
   z-index: 101;
@@ -266,7 +267,7 @@ body {
 
 canvas#keyboard {
   width: 100%;
-  height: var(--kbd_h_adv);
+  height: 100%;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.2);
@@ -424,12 +425,14 @@ canvas#keyboard {
 
 .input-area {
   position: relative;
-  flex: 1;
+  height: var(--kbd_h_adv);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .input-area .module {
   margin: 10px;
   flex: 1;
+  min-height: 0;
 }
